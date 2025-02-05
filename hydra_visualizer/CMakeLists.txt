@@ -21,9 +21,7 @@ find_package(
              visualization_msgs
 )
 
-generate_dynamic_reconfigure_options(
-  cfg/DynamicLayerVisualizer.cfg cfg/LayerVisualizer.cfg cfg/Visualizer.cfg
-)
+generate_dynamic_reconfigure_options(cfg/LayerVisualizer.cfg cfg/Visualizer.cfg)
 
 catkin_package(
   CATKIN_DEPENDS
@@ -58,11 +56,10 @@ add_library(
   src/plugins/footprint_plugin.cpp
   src/utils/config_manager.cpp
   src/utils/ear_clipping.cpp
-  src/utils/label_adaptors.cpp
   src/utils/marker_group_pub.cpp
   src/utils/marker_tracker.cpp
-  src/utils/node_filter.cpp
   src/utils/polygon_utilities.cpp
+  src/utils/text_adaptors.cpp
   src/utils/visualizer_utilities.cpp
   src/utils/visualizer_types.cpp
 )

@@ -125,8 +125,8 @@ void PlacesVisualizer::visualizeExtractor(
     const auto d_min = gvd_config_.get().gvd_min_distance;
     const auto d_max = gvd_config_.get().gvd_max_distance;
 
-    visualizer::StaticLayerInfo info{hydra_visualizer::VisualizerConfig(),
-                                     layer_config_.get()};
+    visualizer::LayerInfo info{hydra_visualizer::VisualizerConfig(),
+                               layer_config_.get()};
     info.graph.collapse_layers = true;
     info.graph.layer_z_step = 0.0;
     info.node_color = [&](const SceneGraphNode& node) {
@@ -141,10 +141,10 @@ void PlacesVisualizer::visualizeExtractor(
     MarkerArray msg;
     msg.markers.push_back(makeLayerNodeMarkers(header, info, graph, "places_nodes"));
     msg.markers.push_back(makeLayerEdgeMarkers(header, info, graph, "places_edges"));
-    if (info.layer.use_label) {
-      const auto labels = makeLayerLabelMarkers(header, info, graph, "place_labels");
+    if (info.layer.use_text) {
+      const auto text = makeLayerNodeTextMarkers(header, info, graph, "places_text");
       msg.markers.insert(
-          msg.markers.end(), labels.markers.begin(), labels.markers.end());
+          msg.markers.end(), text.markers.begin(), text.markers.end());
     }
 
     return msg;

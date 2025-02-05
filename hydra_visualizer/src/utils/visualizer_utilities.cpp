@@ -38,6 +38,7 @@
 #include <spark_dsg/dynamic_scene_graph.h>
 #include <spark_dsg/node_attributes.h>
 #include <spark_dsg/node_symbol.h>
+#include <spark_dsg/printing.h>
 #include <tf2_eigen/tf2_eigen.h>
 
 #include <random>
@@ -47,17 +48,16 @@
 namespace spark_dsg {
 
 bool operator<(const LayerKey& lhs, const LayerKey& rhs) {
-  if (lhs.prefix == rhs.prefix) {
-    return lhs.layer < rhs.layer;
+  if (lhs.layer == rhs.layer) {
+    return lhs.partition < rhs.partition;
   }
 
-  return lhs.prefix < rhs.prefix;
+  return lhs.layer < rhs.layer;
 }
 
 }  // namespace spark_dsg
 
 namespace hydra::visualizer {
-
 using namespace spark_dsg;
 using visualization_msgs::Marker;
 using visualization_msgs::MarkerArray;
@@ -94,6 +94,30 @@ inline void convertVec3f(const Eigen::Vector3f& v, geometry_msgs::Point& p) {
 }
 
 }  // namespace
+
+struct JitterGenerator {
+  JitterGenerator() : gen(rd()) {}
+
+  double getJitter(const std::string& ns, NodeId node) {
+    auto iter = jitters.find(ns);
+    if (iter == jitters.end()) {
+      iter = jitters.emplace(ns, std::unordered_map<NodeId, double>()).first;
+    }
+
+    auto& ns_jitters = iter->second;
+    auto node_jitter = ns_jitters.find(node);
+    if (node_jitter == ns_jitters.end()) {
+      node_jitter = ns_jitters.emplace(node, dist(gen)).first;
+    }
+
+    return node_jitter->second;
+  }
+
+  std::random_device rd;
+  std::mt19937 gen;
+  std::uniform_real_distribution<double> dist{-1.0, 1.0};
+  std::map<std::string, std::unordered_map<NodeId, double>> jitters;
+};
 
 void drawBoundingBox(const spark_dsg::BoundingBox& bbox,
                      const std_msgs::ColorRGBA& color,
@@ -138,7 +162,7 @@ void drawBoundingBox(const spark_dsg::BoundingBox& bbox,
 }
 
 MarkerArray makeLayerBoundingBoxes(const std_msgs::Header& header,
-                                   const StaticLayerInfo& info,
+                                   const LayerInfo& info,
                                    const SceneGraphLayer& layer,
                                    const std::string& ns) {
   // we only draw edges if the graph is not collapsed but the boxes are
@@ -221,7 +245,7 @@ MarkerArray makeLayerBoundingBoxes(const std_msgs::Header& header,
 }
 
 Marker makeLayerEllipseBoundaries(const std_msgs::Header& header,
-                                  const StaticLayerInfo& info,
+                                  const LayerInfo& info,
                                   const SceneGraphLayer& layer,
                                   const std::string& ns) {
   Marker marker;
@@ -269,7 +293,7 @@ Marker makeLayerEllipseBoundaries(const std_msgs::Header& header,
 }
 
 Marker makeLayerPolygonEdges(const std_msgs::Header& header,
-                             const StaticLayerInfo& info,
+                             const LayerInfo& info,
                              const SceneGraphLayer& layer,
                              const std::string& ns) {
   Marker marker;
@@ -309,7 +333,7 @@ Marker makeLayerPolygonEdges(const std_msgs::Header& header,
 }
 
 Marker makeLayerPolygonBoundaries(const std_msgs::Header& header,
-                                  const StaticLayerInfo& info,
+                                  const LayerInfo& info,
                                   const SceneGraphLayer& layer,
                                   const std::string& ns) {
   Marker marker;
@@ -357,7 +381,7 @@ Marker makeLayerPolygonBoundaries(const std_msgs::Header& header,
 }
 
 MarkerArray makeEllipsoidMarkers(const std_msgs::Header& header,
-                                 const StaticLayerInfo& info,
+                                 const LayerInfo& info,
                                  const SceneGraphLayer& layer,
                                  const std::string& ns) {
   size_t id = 0;
@@ -383,20 +407,20 @@ MarkerArray makeEllipsoidMarkers(const std_msgs::Header& header,
     tf2::convert(attrs.orientation, marker.pose.orientation);
 
     marker.pose.position.z += info.getZOffset();
-    marker.color = makeColorMsg(info.node_color(*node), info.layer.marker_alpha);
+    marker.color = makeColorMsg(info.node_color(*node), info.layer.node_alpha);
     msg.markers.push_back(marker);
   }
 
   return msg;
 }
 
-MarkerArray makeLayerLabelMarkers(const std_msgs::Header& header,
-                                  const StaticLayerInfo& info,
-                                  const SceneGraphLayer& layer,
-                                  const std::string& ns) {
+MarkerArray makeLayerNodeTextMarkers(const std_msgs::Header& header,
+                                     const LayerInfo& info,
+                                     const SceneGraphLayer& layer,
+                                     const std::string& ns) {
   MarkerArray msg;
-  if (!info.node_label) {
-    LOG(WARNING) << "Missing node label function!";
+  if (!info.node_text) {
+    LOG(WARNING) << "Missing node text function!";
     return msg;
   }
 
@@ -413,27 +437,26 @@ MarkerArray makeLayerLabelMarkers(const std_msgs::Header& header,
     marker.action = Marker::ADD;
     marker.lifetime = ros::Duration(0);
 
-    const auto name = info.node_label(*node);
+    const auto name = info.node_text(*node);
     if (name.empty()) {
       continue;
     }
 
-    marker.text = name.empty() ? NodeSymbol(node->id).getLabel() : name;
-    marker.scale.z = info.layer.label_scale;
+    marker.text = name.empty() ? NodeSymbol(node->id).str() : name;
+    marker.scale.z = info.layer.text_scale;
     marker.color = makeColorMsg(Color());
 
     fillPoseWithIdentity(marker.pose);
     tf2::convert(node->attributes().position, marker.pose.position);
-    marker.pose.position.z += info.layer.label_height;
-    if (!info.layer.collapse_label) {
+    marker.pose.position.z += info.layer.text_height;
+    if (!info.layer.collapse_text) {
       marker.pose.position.z += info.getZOffset();
     }
 
-    if (info.layer.add_label_jitter) {
-      static std::random_device rd;
-      static std::mt19937 gen(rd());
-      std::uniform_real_distribution dist(-1.0, 1.0);
-      const auto z_jitter = info.layer.label_jitter_scale * dist(gen);
+    if (info.layer.add_text_jitter) {
+      static JitterGenerator jitters;
+      const auto z_jitter =
+          info.layer.text_jitter_scale * jitters.getJitter(ns, node_id);
       marker.pose.position.z += z_jitter;
     }
   }
@@ -442,19 +465,19 @@ MarkerArray makeLayerLabelMarkers(const std_msgs::Header& header,
 }
 
 Marker makeLayerNodeMarkers(const std_msgs::Header& header,
-                            const StaticLayerInfo& info,
+                            const LayerInfo& info,
                             const SceneGraphLayer& layer,
                             const std::string& ns) {
   Marker marker;
   marker.header = header;
-  marker.type = info.layer.use_sphere_marker ? Marker::SPHERE_LIST : Marker::CUBE_LIST;
+  marker.type = info.layer.node_use_sphere ? Marker::SPHERE_LIST : Marker::CUBE_LIST;
   marker.action = visualization_msgs::Marker::ADD;
   marker.id = 0;
   marker.ns = ns;
 
-  marker.scale.x = info.layer.marker_scale;
-  marker.scale.y = info.layer.marker_scale;
-  marker.scale.z = info.layer.marker_scale;
+  marker.scale.x = info.layer.node_scale;
+  marker.scale.y = info.layer.node_scale;
+  marker.scale.z = info.layer.node_scale;
 
   fillPoseWithIdentity(marker.pose);
 
@@ -471,14 +494,14 @@ Marker makeLayerNodeMarkers(const std_msgs::Header& header,
     marker.points.push_back(node_centroid);
 
     const auto desired_color = info.node_color(*node);
-    marker.colors.push_back(makeColorMsg(desired_color, info.layer.marker_alpha));
+    marker.colors.push_back(makeColorMsg(desired_color, info.layer.node_alpha));
   }
 
   return marker;
 }
 
 Marker makeLayerEdgeMarkers(const std_msgs::Header& header,
-                            const StaticLayerInfo& info,
+                            const LayerInfo& info,
                             const SceneGraphLayer& layer,
                             const std::string& ns) {
   Marker marker;
@@ -490,6 +513,9 @@ Marker makeLayerEdgeMarkers(const std_msgs::Header& header,
   marker.action = Marker::ADD;
   marker.scale.x = info.layer.edge_scale;
   fillPoseWithIdentity(marker.pose);
+  if (!info.layer.draw_edges) {
+    return marker;
+  }
 
   for (const auto& [key, edge] : layer.edges()) {
     const auto& source_node = layer.getNode(edge.source);
@@ -518,9 +544,9 @@ Marker makeLayerEdgeMarkers(const std_msgs::Header& header,
 }
 
 Marker makeMeshEdgesMarker(const std_msgs::Header& header,
-                           const StaticLayerInfo& info,
-                           const DynamicSceneGraph& graph,
+                           const LayerInfo& info,
                            const SceneGraphLayer& layer,
+                           const Mesh& mesh,
                            const std::string& ns) {
   Marker marker;
   marker.header = header;
@@ -532,8 +558,7 @@ Marker makeMeshEdgesMarker(const std_msgs::Header& header,
   marker.scale.x = info.layer.interlayer_edge_scale;
   fillPoseWithIdentity(marker.pose);
 
-  const auto mesh = graph.mesh();
-  if (!mesh || info.graph.collapse_layers) {
+  if (info.graph.collapse_layers) {
     return marker;
   }
 
@@ -569,11 +594,11 @@ Marker makeMeshEdgesMarker(const std_msgs::Header& header,
         continue;
       }
 
-      if (midx >= mesh->numVertices()) {
+      if (midx >= mesh.numVertices()) {
         continue;
       }
 
-      Eigen::Vector3d vertex_pos = mesh->pos(midx).cast<double>();
+      Eigen::Vector3d vertex_pos = mesh.pos(midx).cast<double>();
       geometry_msgs::Point vertex;
       tf2::convert(vertex_pos, vertex);
 
@@ -587,101 +612,44 @@ Marker makeMeshEdgesMarker(const std_msgs::Header& header,
   return marker;
 }
 
-Marker makeDynamicNodeMarkers(const std_msgs::Header& header,
-                              const DynamicLayerInfo& info,
-                              const DynamicSceneGraphLayer& layer,
-                              const std::string& ns) {
-  Marker marker;
-  marker.header = header;
-  marker.type = info.layer.node_use_sphere ? Marker::SPHERE_LIST : Marker::CUBE_LIST;
-  marker.action = visualization_msgs::Marker::ADD;
-  marker.ns = ns;
-  marker.id = layer.prefix;
-
-  marker.scale.x = info.layer.node_scale;
-  marker.scale.y = info.layer.node_scale;
-  marker.scale.z = info.layer.node_scale;
-
-  fillPoseWithIdentity(marker.pose);
-
-  marker.points.reserve(layer.numNodes());
-  for (const auto& node : layer.nodes()) {
-    if (!node) {
-      continue;
-    }
-
-    geometry_msgs::Point node_centroid;
-    tf2::convert(node->attributes().position, node_centroid);
-    node_centroid.z += info.getZOffset();
-    marker.points.push_back(node_centroid);
-    const auto color = info.node_color(*node);
-    marker.colors.push_back(makeColorMsg(color, info.layer.node_alpha));
-  }
-
-  return marker;
-}
-
-Marker makeDynamicEdgeMarkers(const std_msgs::Header& header,
-                              const DynamicLayerInfo& info,
-                              const DynamicSceneGraphLayer& layer,
-                              const std::string& ns) {
-  Marker marker;
-  marker.header = header;
-  marker.type = Marker::LINE_LIST;
-  marker.ns = ns;
-  marker.id = layer.prefix;
-
-  marker.action = Marker::ADD;
-  marker.scale.x = info.layer.edge_scale;
-  fillPoseWithIdentity(marker.pose);
-
-  for (const auto& [key, edge] : layer.edges()) {
-    const auto& source_node = layer.getNode(edge.source);
-    const auto& target_node = layer.getNode(edge.target);
-
-    const auto c_source = info.edge_color(source_node, target_node, edge, true);
-    const auto c_target = info.edge_color(source_node, target_node, edge, false);
-    marker.colors.push_back(makeColorMsg(c_source, info.layer.edge_alpha));
-    marker.colors.push_back(makeColorMsg(c_target, info.layer.edge_alpha));
-
-    geometry_msgs::Point source;
-    tf2::convert(layer.getNode(edge.source).attributes().position, source);
-    source.z += info.getZOffset();
-    marker.points.push_back(source);
-
-    geometry_msgs::Point target;
-    tf2::convert(layer.getNode(edge.target).attributes().position, target);
-    target.z += info.getZOffset();
-    marker.points.push_back(target);
-  }
-
-  return marker;
-}
-
-Marker makeDynamicLabelMarker(const std_msgs::Header& header,
-                              const DynamicLayerInfo& info,
-                              const DynamicSceneGraphLayer& layer,
-                              const std::string& ns) {
+// NOTE(nathan) this reuses the normal node text infrastructure, which is mostly fine
+// because the two are mutually exclusive
+Marker makeLayerTextMarker(const std_msgs::Header& header,
+                           const LayerInfo& info,
+                           const SceneGraphLayer& layer,
+                           const std::string& ns) {
   Marker marker;
   marker.header = header;
   marker.type = Marker::TEXT_VIEW_FACING;
   marker.ns = ns;
-  marker.id = layer.prefix;
+  marker.id = 0;
   marker.action = Marker::ADD;
   marker.lifetime = ros::Duration(0);
-  marker.scale.z = info.layer.label_scale;
+  marker.scale.z = info.layer.text_scale;
   marker.color = makeColorMsg(Color());
 
-  const auto& node = layer.getNodeByIndex(layer.numNodes() - 1);
-  marker.text = info.node_label(node);
-  if (marker.text.empty()) {
-    marker.text = std::to_string(layer.id) + ":" + layer.prefix.str();
+  std::optional<uint64_t> best_stamp;
+  Eigen::Vector3d pos = Eigen::Vector3d::Zero();
+  for (const auto& [node_id, node] : layer.nodes()) {
+    const auto& attrs = node->attributes();
+    if (!best_stamp || attrs.last_update_time_ns >= best_stamp.value()) {
+      best_stamp = attrs.last_update_time_ns;
+      pos = attrs.position;
+      if (info.node_text) {
+        marker.text = info.node_text(*node);
+      }
+    }
   }
 
-  Eigen::Vector3d latest_position = node.attributes().position;
+  if (marker.text.empty()) {
+    std::stringstream ss;
+    ss << layer.id;
+    marker.text = ss.str();
+  }
+
   fillPoseWithIdentity(marker.pose);
-  tf2::convert(latest_position, marker.pose.position);
-  marker.pose.position.z += info.getZOffset() + info.layer.label_height;
+  tf2::convert(pos, marker.pose.position);
+  marker.pose.position.z += info.getZOffset() + info.layer.text_height;
   return marker;
 }
 
@@ -695,22 +663,20 @@ MarkerArray makeGraphEdgeMarkers(const std_msgs::Header& header,
   std::map<LayerKey, size_t> num_since_last;
   for (const auto& [key, edge] : edges) {
     const auto& source = graph.getNode(edge.source);
-    const auto source_layer = graph.getLayerForNode(edge.source).value();
     const auto& target = graph.getNode(edge.target);
-    const auto target_layer = graph.getLayerForNode(edge.target).value();
-    const auto edge_info = info.getEdgeInfo(source_layer, source, target_layer, target);
+    const auto edge_info = info.getEdgeInfo(source.layer, source, target.layer, target);
     if (!edge_info.visualize) {
       continue;
     }
 
-    auto iter = marker_indices.find(source_layer);
+    auto iter = marker_indices.find(source.layer);
     if (iter == marker_indices.end()) {
-      iter = marker_indices.emplace(source_layer, msg.markers.size()).first;
+      iter = marker_indices.emplace(source.layer, msg.markers.size()).first;
       msg.markers.push_back(
-          makeNewEdgeList(header, ns_prefix, source_layer, target_layer));
+          makeNewEdgeList(header, ns_prefix, source.layer, target.layer));
       msg.markers.back().scale.x = edge_info.scale;
       // make sure we always draw at least one edge
-      num_since_last[source_layer] = edge_info.num_to_skip;
+      num_since_last[source.layer] = edge_info.num_to_skip;
     }
 
     if (num_since_last[source.layer] >= edge_info.num_to_skip) {

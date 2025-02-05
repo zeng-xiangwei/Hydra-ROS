@@ -39,6 +39,7 @@
 #include <config_utilities/validation.h>
 #include <glog/logging.h>
 #include <spark_dsg/node_attributes.h>
+#include <spark_dsg/printing.h>
 #include <std_msgs/String.h>
 #include <tf2_eigen/tf2_eigen.h>
 
@@ -47,6 +48,19 @@
 #include "hydra_visualizer/utils/visualizer_utilities.h"
 
 namespace hydra {
+namespace {
+
+inline std::string keyToLayerName(spark_dsg::LayerKey key) {
+  std::stringstream ss;
+  ss << "layer_" << key.layer;
+  if (key.partition) {
+    ss << "p" << key.partition;
+  }
+
+  return ss.str();
+}
+
+}  // namespace
 
 using namespace spark_dsg;
 using namespace visualizer;
@@ -55,48 +69,36 @@ using visualization_msgs::Marker;
 using visualization_msgs::MarkerArray;
 
 struct MarkerNamespaces {
-  static std::string layerNodeNamespace(spark_dsg::LayerId layer) {
-    return std::string("layer_nodes_") + std::to_string(layer);
+  static std::string layerNodeNamespace(LayerKey key) {
+    return keyToLayerName(key) + "_nodes";
   }
 
-  static std::string layerEdgeNamespace(spark_dsg::LayerId layer) {
-    return std::string("layer_edges_") + std::to_string(layer);
+  static std::string layerEdgeNamespace(LayerKey key) {
+    return keyToLayerName(key) + "_edges";
   }
 
-  static std::string layerLabelNamespace(spark_dsg::LayerId layer) {
-    return std::string("layer_labels_") + std::to_string(layer);
+  static std::string layerTextNamespace(LayerKey key) {
+    return keyToLayerName(key) + "_text";
   }
 
-  static std::string layerBboxNamespace(spark_dsg::LayerId layer) {
-    return std::string("layer_bounding_boxes_") + std::to_string(layer);
+  static std::string layerBboxNamespace(LayerKey key) {
+    return keyToLayerName(key) + "_bounding_boxes";
   }
 
-  static std::string layerBoundaryNamespace(spark_dsg::LayerId layer) {
-    return std::string("layer_polygon_boundaries_") + std::to_string(layer);
+  static std::string layerBoundaryNamespace(LayerKey key) {
+    return keyToLayerName(key) + "_polygon_boundaries";
   }
 
-  static std::string layerBoundaryEllipseNamespace(spark_dsg::LayerId layer) {
-    return std::string("layer_ellipsoid_boundaries_") + std::to_string(layer);
+  static std::string layerBoundaryEllipseNamespace(LayerKey key) {
+    return keyToLayerName(key) + "_ellipsoid_boundaries";
   }
 
-  static std::string layerBoundaryEdgeNamespace(spark_dsg::LayerId layer) {
-    return std::string("layer_polygon_boundaries_edges_") + std::to_string(layer);
+  static std::string layerBoundaryEdgeNamespace(LayerKey key) {
+    return keyToLayerName(key) + "_polygon_boundaries_edges";
   }
 
-  static std::string meshEdgeNamespace(spark_dsg::LayerId layer) {
-    return std::string("mesh_edges_") + std::to_string(layer);
-  }
-
-  static std::string dynamicNodeNamespace(char layer_prefix) {
-    return std::string("dynamic_nodes_") + layer_prefix;
-  }
-
-  static std::string dynamicEdgeNamespace(char layer_prefix) {
-    return std::string("dynamic_edges_") + layer_prefix;
-  }
-
-  static std::string dynamicLabelNamespace(char layer_prefix) {
-    return std::string("dynamic_label_") + layer_prefix;
+  static std::string meshEdgeNamespace(LayerKey key) {
+    return keyToLayerName(key) + "_mesh_edges";
   }
 };
 
@@ -130,34 +132,20 @@ void SceneGraphRenderer::draw(const std_msgs::Header& header,
   const auto& manager = ConfigManager::instance();
 
   MarkerArray msg;
-  for (auto&& [layer_id, layer] : graph.layers()) {
+  for (const auto& [layer_id, layer] : graph.layers()) {
     const auto& conf = manager.getLayerConfig(layer_id);
     auto iter = info.layers.emplace(layer_id, conf.getInfo(graph)).first;
-    drawLayer(header, iter->second, *layer, msg);
-    if (iter->second.layer.visualize && iter->second.layer.draw_mesh_edges) {
-      const std::string ns = MarkerNamespaces::meshEdgeNamespace(layer_id);
-      tracker_.add(makeMeshEdgesMarker(header, iter->second, graph, *layer, ns), msg);
+    drawLayer(header, iter->second, *layer, graph.mesh().get(), msg);
+    for (const auto& [partition_id, partition] : graph.layer_partition(layer_id)) {
+      const auto& conf = manager.getPartitionLayerConfig(layer_id);
+      auto iter = info.layer_partitions.emplace(layer_id, conf.getInfo(graph)).first;
+      drawLayer(header, iter->second, *partition, graph.mesh().get(), msg);
     }
   }
 
-  for (auto&& [layer_id, sublayers] : graph.dynamicLayers()) {
-    const auto& conf = manager.getDynamicLayerConfig(layer_id);
-    auto iter = info.dynamic_layers.emplace(layer_id, conf.getInfo(graph)).first;
-    for (auto&& [prefix, layer] : sublayers) {
-      drawDynamicLayer(header, iter->second, *layer, msg);
-    }
-  }
-
-  const auto static_edges = makeGraphEdgeMarkers(
+  const auto edges = makeGraphEdgeMarkers(
       header, info, graph, graph.interlayer_edges(), "interlayer_edges_");
-  tracker_.add(static_edges, msg);
-
-  const auto dynamic_edges = makeGraphEdgeMarkers(header,
-                                                  info,
-                                                  graph,
-                                                  graph.dynamic_interlayer_edges(),
-                                                  "dynamic_interlayer_edges_");
-  tracker_.add(dynamic_edges, msg);
+  tracker_.add(edges, msg);
 
   tracker_.clearPrevious(header, msg);
   if (!msg.markers.empty()) {
@@ -166,8 +154,9 @@ void SceneGraphRenderer::draw(const std_msgs::Header& header,
 }
 
 void SceneGraphRenderer::drawLayer(const std_msgs::Header& header,
-                                   const StaticLayerInfo& info,
+                                   const LayerInfo& info,
                                    const SceneGraphLayer& layer,
+                                   const Mesh* mesh,
                                    MarkerArray& msg) {
   if (!info.layer.visualize) {
     return;
@@ -186,9 +175,16 @@ void SceneGraphRenderer::drawLayer(const std_msgs::Header& header,
   const auto node_ns = MarkerNamespaces::layerNodeNamespace(layer.id);
   tracker_.add(makeLayerNodeMarkers(header, info, layer, node_ns), msg);
 
-  if (info.layer.use_label) {
-    const auto ns = MarkerNamespaces::layerLabelNamespace(layer.id);
-    tracker_.add(makeLayerLabelMarkers(header, info, layer, ns), msg);
+  if (info.layer.use_text) {
+    if (info.layer.use_layer_text) {
+      LOG_FIRST_N(WARNING, 5) << "use_text and use_layer_text are mutually exclusive!";
+    }
+
+    const auto ns = MarkerNamespaces::layerTextNamespace(layer.id);
+    tracker_.add(makeLayerNodeTextMarkers(header, info, layer, ns), msg);
+  } else if (info.layer.use_layer_text && !layer.nodes().empty()) {
+    const auto ns = MarkerNamespaces::layerTextNamespace(layer.id);
+    tracker_.add(makeLayerTextMarker(header, info, layer, ns), msg);
   }
 
   if (info.layer.use_bounding_box) {
@@ -232,24 +228,11 @@ void SceneGraphRenderer::drawLayer(const std_msgs::Header& header,
 
   const auto edge_ns = MarkerNamespaces::layerEdgeNamespace(layer.id);
   tracker_.add(makeLayerEdgeMarkers(header, info, layer, edge_ns), msg);
-}
 
-void SceneGraphRenderer::drawDynamicLayer(const std_msgs::Header& header,
-                                          const DynamicLayerInfo& info,
-                                          const DynamicSceneGraphLayer& layer,
-                                          MarkerArray& msg) {
-  if (!info.layer.visualize) {
-    return;
+  if (mesh && info.layer.draw_mesh_edges) {
+    const std::string ns = MarkerNamespaces::meshEdgeNamespace(layer.id);
+    tracker_.add(makeMeshEdgesMarker(header, info, layer, *mesh, ns), msg);
   }
-
-  const auto node_ns = MarkerNamespaces::dynamicNodeNamespace(layer.prefix);
-  tracker_.add(makeDynamicNodeMarkers(header, info, layer, node_ns), msg);
-
-  const auto edge_ns = MarkerNamespaces::dynamicEdgeNamespace(layer.prefix);
-  tracker_.add(makeDynamicEdgeMarkers(header, info, layer, edge_ns), msg);
-
-  const auto label_ns = MarkerNamespaces::dynamicLabelNamespace(layer.prefix);
-  tracker_.add(makeDynamicLabelMarker(header, info, layer, label_ns), msg);
 }
 
 }  // namespace hydra

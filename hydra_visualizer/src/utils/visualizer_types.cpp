@@ -50,7 +50,7 @@ Color DefaultNodeColorFunction::operator()(const SceneGraphNode& node) const {
   }
 }
 
-std::string DefaultNodeLabelFunction::operator()(const SceneGraphNode& node) const {
+std::string DefaultNodeTextFunction::operator()(const SceneGraphNode& node) const {
   try {
     return node.attributes<SemanticNodeAttributes>().name;
   } catch (const std::bad_cast&) {
@@ -65,13 +65,11 @@ Color DefaultEdgeColorFunction::operator()(const SceneGraphNode&,
   return {};
 }
 
-template <>
-double StaticLayerInfo::getZOffset() const {
+double LayerInfo::getZOffset() const {
   return graph.collapse_layers ? 0 : layer.z_offset_scale * graph.layer_z_step;
 }
 
-template <>
-bool StaticLayerInfo::shouldVisualize(const spark_dsg::SceneGraphNode& node) const {
+bool LayerInfo::shouldVisualize(const spark_dsg::SceneGraphNode& node) const {
   if (!layer.visualize) {
     return false;
   }
@@ -83,129 +81,45 @@ bool StaticLayerInfo::shouldVisualize(const spark_dsg::SceneGraphNode& node) con
   return true;
 }
 
-template <>
-double DynamicLayerInfo::getZOffset() const {
-  return graph.collapse_layers ? 0 : layer.z_offset_scale * graph.layer_z_step;
-}
-
-template <>
-bool DynamicLayerInfo::shouldVisualize(const spark_dsg::SceneGraphNode& node) const {
-  if (!layer.visualize) {
-    return false;
-  }
-
-  if (filter && !filter(node)) {
-    return false;
-  }
-
-  return true;
-}
-
-// TODO(nathan) this is janky, but we should tackle this after the refactor
-struct LayerEdgeInfo {
-  LayerEdgeInfo()
-      : visualize(false), visualize_edges(false), z_offset(0.0), num_to_skip(0) {}
-
-  LayerEdgeInfo(const StaticLayerInfo& info)
-      : visualize(info.layer.visualize),
-        visualize_edges(info.layer.visualize),
-        z_offset(info.getZOffset()),
-        num_to_skip(info.layer.interlayer_edge_insertion_skip),
-        node_color(info.node_color),
-        edge_color(info.edge_color),
-        filter(info.filter) {}
-
-  LayerEdgeInfo(const DynamicLayerInfo& info)
-      : visualize(info.layer.visualize),
-        visualize_edges(info.layer.visualize_interlayer_edges),
-        z_offset(info.getZOffset()),
-        num_to_skip(info.layer.interlayer_edge_insertion_skip),
-        node_color(info.node_color),
-        edge_color(info.edge_color),
-        filter(info.filter) {}
-
-  bool visualize;
-  bool visualize_edges;
-  double z_offset;
-  size_t num_to_skip;
-  const NodeColorFunction node_color;
-  const EdgeColorFunction edge_color;
-  const FilterFunction filter;
-
-  bool shouldVisualize(const SceneGraphNode& node) const {
-    if (!filter) {
-      return true;
-    }
-
-    return filter(node);
-  }
-};
-
-LayerEdgeInfo getLayerInfo(const GraphInfo& info, const LayerKey& key) {
-  if (key.dynamic) {
-    auto iter = info.dynamic_layers.find(key.layer);
-    if (iter == info.dynamic_layers.end()) {
-      return {};
-    }
-
-    return iter->second;
+LayerInfo GraphInfo::getLayerInfo(LayerKey key) const {
+  if (key.partition) {
+    auto iter = layer_partitions.find(key.layer);
+    return iter == layer_partitions.end() ? LayerInfo() : iter->second;
   } else {
-    auto iter = info.layers.find(key.layer);
-    if (iter == info.layers.end()) {
-      return {};
-    }
-
-    return iter->second;
+    auto iter = layers.find(key.layer);
+    return iter == layers.end() ? LayerInfo() : iter->second;
   }
 }
 
-GraphInfo::EdgeInformation GraphInfo::getEdgeInfo(const LayerKey& source_layer,
+GraphInfo::EdgeInformation GraphInfo::getEdgeInfo(LayerKey source_layer,
                                                   const SceneGraphNode& source,
-                                                  const LayerKey& target_layer,
+                                                  LayerKey target_layer,
                                                   const SceneGraphNode& target) const {
-  const auto source_info = getLayerInfo(*this, source_layer);
-  if (!source_info.visualize || !source_info.shouldVisualize(source)) {
+  const auto source_info = getLayerInfo(source_layer);
+  if (!source_info.shouldVisualize(source)) {
     return {};
   }
 
-  const auto target_info = getLayerInfo(*this, target_layer);
+  const auto target_info = getLayerInfo(target_layer);
   if (!target_info.shouldVisualize(target)) {
     return {};
   }
 
-  // dynamic layers have a toggle for interlayer edges
-  if (!source_info.visualize_edges || !target_info.visualize_edges) {
+  if (!source_info.layer.draw_interlayer_edges ||
+      !target_info.layer.draw_interlayer_edges) {
     return {};
   }
 
-  bool use_source = true;
-  const StaticLayerInfo* info = nullptr;
-  if (source_layer.dynamic) {
-    if (!target_layer.dynamic) {
-      use_source = false;
-      info = &layers.at(target_layer.layer);
-    }
-  } else {
-    info = &layers.at(source_layer.layer);
-    if (!info->layer.interlayer_edge_use_source && !target_layer.dynamic) {
-      use_source = false;
-      info = &layers.at(target_layer.layer);
-    }
-  }
-
-  Color color;
-  if (!info || info->layer.interlayer_edge_use_color) {
-    color =
-        use_source ? source_info.node_color(source) : target_info.node_color(target);
-  }
-
-  const double alpha = info ? info->layer.interlayer_edge_alpha : 1.0;
+  const auto& info =
+      source_info.layer.interlayer_edge_use_source ? source_info : target_info;
+  const auto alpha = info.layer.interlayer_edge_alpha;
+  const auto color = makeColorMsg(info.node_color(source), alpha);
   return {true,
-          use_source ? source_info.num_to_skip : target_info.num_to_skip,
-          info ? info->layer.interlayer_edge_scale : 0.01,
-          makeColorMsg(color, alpha),
-          source_info.z_offset,
-          target_info.z_offset};
+          static_cast<size_t>(info.layer.interlayer_edge_insertion_skip),
+          info.layer.interlayer_edge_scale,
+          color,
+          source_info.getZOffset(),
+          target_info.getZOffset()};
 }
 
 }  // namespace hydra::visualizer

@@ -218,22 +218,22 @@ struct FrontierColorAdaptor : GraphColorAdaptor {
 
 void declare_config(FrontierColorAdaptor::Config& config);
 
-struct PrefixColorAdaptor : GraphColorAdaptor {
+struct PartitionColorAdaptor : GraphColorAdaptor {
   struct Config {
     visualizer::DiscreteColormap::Config colormap;
   } const config;
 
-  explicit PrefixColorAdaptor(const Config& config);
+  explicit PartitionColorAdaptor(const Config& config);
   spark_dsg::Color getColor(const spark_dsg::DynamicSceneGraph& graph,
                             const spark_dsg::SceneGraphNode& node) const override;
 
  private:
   const visualizer::DiscreteColormap colormap_;
 
-  REGISTER_COLOR_ADAPTOR(PrefixColorAdaptor);
+  REGISTER_COLOR_ADAPTOR(PartitionColorAdaptor);
 };
 
-void declare_config(PrefixColorAdaptor::Config& config);
+void declare_config(PartitionColorAdaptor::Config& config);
 
 struct ValueFunctor {
   virtual ~ValueFunctor() = default;

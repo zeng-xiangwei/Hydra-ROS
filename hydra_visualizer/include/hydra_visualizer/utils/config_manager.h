@@ -39,14 +39,10 @@
 
 #include "hydra_visualizer/color/graph_color_adaptors.h"
 #include "hydra_visualizer/utils/config_wrapper.h"
-#include "hydra_visualizer/utils/label_adaptors.h"
+#include "hydra_visualizer/utils/text_adaptors.h"
 #include "hydra_visualizer/utils/visualizer_types.h"
 
 namespace hydra::visualizer {
-
-const std::string& getColorMode(const hydra_visualizer::LayerVisualizerConfig& config);
-const std::string& getColorMode(
-    const hydra_visualizer::DynamicLayerVisualizerConfig& config);
 
 class ColorManager {
  public:
@@ -70,11 +66,11 @@ class ColorManager {
   std::unique_ptr<GraphColorAdaptor> adaptor_;
 };
 
-class LabelManager {
+class TextManager {
  public:
-  using LabelFunc = std::function<std::string(const spark_dsg::SceneGraphNode&)>;
-  explicit LabelManager(const ros::NodeHandle& nh);
-  LabelFunc get() const;
+  using TextFunc = std::function<std::string(const spark_dsg::SceneGraphNode&)>;
+  explicit TextManager(const ros::NodeHandle& nh);
+  TextFunc get() const;
   void set(const std::string& mode);
   bool hasChange() const;
   void clearChangeFlag();
@@ -88,70 +84,30 @@ class LabelManager {
   ros::NodeHandle nh_;
   ros::Subscriber sub_;
   std::string curr_contents_;
-  GraphLabelAdaptor::Ptr adaptor_;
+  GraphTextAdaptor::Ptr adaptor_;
 };
 
-template <typename ConfigT>
 class LayerConfig {
  public:
   LayerConfig(const ros::NodeHandle& nh,
               const std::string& ns,
-              spark_dsg::LayerId layer)
-      : color(std::make_unique<ColorManager>(ros::NodeHandle(nh, ns), layer)),
-        label(std::make_unique<LabelManager>(ros::NodeHandle(nh, ns))),
-        config(std::make_unique<ConfigWrapper<ConfigT>>(nh, ns)) {
-    setCallback();
-  }
-
+              spark_dsg::LayerId layer);
   ~LayerConfig() = default;
   LayerConfig(const LayerConfig& other) = delete;
   LayerConfig& operator=(const LayerConfig& other) = delete;
-
-  LayerConfig(LayerConfig&& other)
-      : color(std::move(other.color)),
-        label(std::move(other.label)),
-        config(std::move(other.config)) {
-    setCallback();
-  }
-
-  LayerConfig& operator=(LayerConfig&& other) {
-    color = std::move(other.color);
-    label = std::move(other.label);
-    config = std::move(other.config);
-    setCallback();
-    return *this;
-  }
-
-  LayerInfo<ConfigT> getInfo(const spark_dsg::DynamicSceneGraph& graph) const;
-
-  bool hasChange() const {
-    return color->hasChange() || label->hasChange() || config->hasChange();
-  }
-
-  void clearChangeFlag() {
-    color->clearChangeFlag();
-    label->clearChangeFlag();
-    config->clearChangeFlag();
-  }
+  LayerConfig(LayerConfig&& other);
+  LayerConfig& operator=(LayerConfig&& other);
+  LayerInfo getInfo(const spark_dsg::DynamicSceneGraph& graph) const;
+  bool hasChange() const;
+  void clearChangeFlag();
 
   std::unique_ptr<ColorManager> color;
-  std::unique_ptr<LabelManager> label;
-  std::unique_ptr<ConfigWrapper<ConfigT>> config;
+  std::unique_ptr<TextManager> text;
+  std::unique_ptr<ConfigWrapper<hydra_visualizer::LayerVisualizerConfig>> config;
 
  private:
-  void setCallback() {
-    const auto c = config->get();
-    color->set(getColorMode(c));
-    label->set(c.label_mode);
-    config->setUpdateCallback([this](const auto& c) {
-      color->set(getColorMode(c));
-      label->set(c.label_mode);
-    });
-  }
+  void setCallback();
 };
-
-using StaticLayerConfig = LayerConfig<hydra_visualizer::LayerVisualizerConfig>;
-using DynamicLayerConfig = LayerConfig<hydra_visualizer::DynamicLayerVisualizerConfig>;
 
 class ConfigManager {
  public:
@@ -174,9 +130,9 @@ class ConfigManager {
 
   const hydra_visualizer::VisualizerConfig& getVisualizerConfig() const;
 
-  const StaticLayerConfig& getLayerConfig(spark_dsg::LayerId layer) const;
+  const LayerConfig& getLayerConfig(spark_dsg::LayerId layer) const;
 
-  const DynamicLayerConfig& getDynamicLayerConfig(spark_dsg::LayerId layer) const;
+  const LayerConfig& getPartitionLayerConfig(spark_dsg::LayerId layer) const;
 
  private:
   ConfigManager();
@@ -185,19 +141,8 @@ class ConfigManager {
 
   ros::NodeHandle nh_;
   mutable ConfigWrapper<hydra_visualizer::VisualizerConfig>::Ptr visualizer_config_;
-  mutable LayerMap<StaticLayerConfig> layers_;
-  mutable LayerMap<DynamicLayerConfig> dynamic_layers_;
+  mutable LayerMap<LayerConfig> layers_;
+  mutable LayerMap<LayerConfig> layer_partitions_;
 };
-
-template <typename ConfigT>
-LayerInfo<ConfigT> LayerConfig<ConfigT>::getInfo(
-    const spark_dsg::DynamicSceneGraph& graph) const {
-  LayerInfo<ConfigT> info;
-  info.graph = ConfigManager::instance().getVisualizerConfig();
-  info.layer = config->get();
-  info.node_color = color->get(graph);
-  info.node_label = label->get();
-  return info;
-}
 
 }  // namespace hydra::visualizer

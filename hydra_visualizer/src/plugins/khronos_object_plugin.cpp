@@ -152,8 +152,7 @@ void KhronosObjectPlugin::drawDynamicObjects(const std_msgs::Header& header,
   MarkerArray msg;
 
   for (const auto& [node_id, node] : objects.nodes()) {
-    const auto attrs =
-        dynamic_cast<const KhronosObjectAttributes*>(node->getAttributesPtr());
+    const auto attrs = node->tryAttributes<KhronosObjectAttributes>();
     if (!attrs || attrs->trajectory_positions.empty()) {
       continue;
     }
@@ -218,8 +217,7 @@ void KhronosObjectPlugin::drawStaticObjects(const std_msgs::Header& header,
   std::unordered_set<uint64_t> present_objects;
   const auto& objects = dsg.getLayer(config.layer);
   for (const auto& [node_id, node] : objects.nodes()) {
-    const auto attrs =
-        dynamic_cast<const KhronosObjectAttributes*>(node->getAttributesPtr());
+    const auto attrs = node->tryAttributes<KhronosObjectAttributes>();
     if (!attrs) {
       continue;
     }

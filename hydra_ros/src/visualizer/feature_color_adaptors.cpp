@@ -140,7 +140,7 @@ void FeatureScoreColor::setGraph(const DynamicSceneGraph& graph, LayerId layer_i
   for (const auto& [node_id, node] : layer.nodes()) {
     const auto& attrs = node->attributes<SemanticNodeAttributes>();
     const auto score = metric_->score(feature_, attrs.semantic_feature);
-    VLOG(20) << "node " << NodeSymbol(node_id).getLabel() << " -> " << score << ": "
+    VLOG(20) << "node " << NodeSymbol(node_id).str() << " -> " << score << ": "
              << showVec(attrs.semantic_feature);
     range_.min = std::min(range_.min, score);
     range_.max = std::max(range_.max, score);
@@ -214,7 +214,7 @@ NearestFeatureLabel::NearestFeatureLabel(const Config& config)
       metric_(config.metric.create()),
       features_(config.features.create()) {}
 
-std::string NearestFeatureLabel::getLabel(const SceneGraphNode& node) const {
+std::string NearestFeatureLabel::getText(const SceneGraphNode& node) const {
   if (!features_ || !metric_) {
     return "";
   }

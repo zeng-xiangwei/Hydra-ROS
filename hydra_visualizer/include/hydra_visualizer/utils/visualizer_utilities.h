@@ -46,7 +46,6 @@
 namespace hydra::visualizer {
 
 using spark_dsg::DynamicSceneGraph;
-using spark_dsg::DynamicSceneGraphLayer;
 using spark_dsg::EdgeContainer;
 using spark_dsg::SceneGraphLayer;
 
@@ -55,65 +54,55 @@ void drawBoundingBox(const spark_dsg::BoundingBox& bbox,
                      visualization_msgs::Marker& marker);
 
 visualization_msgs::MarkerArray makeLayerBoundingBoxes(const std_msgs::Header& header,
-                                                       const StaticLayerInfo& info,
+                                                       const LayerInfo& info,
                                                        const SceneGraphLayer& layer,
                                                        const std::string& ns);
 
 visualization_msgs::Marker makeLayerEllipseBoundaries(const std_msgs::Header& header,
-                                                      const StaticLayerInfo& info,
+                                                      const LayerInfo& info,
                                                       const SceneGraphLayer& layer,
                                                       const std::string& ns);
 
 visualization_msgs::Marker makeLayerPolygonEdges(const std_msgs::Header& header,
-                                                 const StaticLayerInfo& info,
+                                                 const LayerInfo& info,
                                                  const SceneGraphLayer& layer,
                                                  const std::string& ns);
 
 visualization_msgs::Marker makeLayerPolygonBoundaries(const std_msgs::Header& header,
-                                                      const StaticLayerInfo& info,
+                                                      const LayerInfo& info,
                                                       const SceneGraphLayer& layer,
                                                       const std::string& ns);
 
 visualization_msgs::MarkerArray makeEllipsoidMarkers(const std_msgs::Header& header,
-                                                     const StaticLayerInfo& info,
+                                                     const LayerInfo& info,
                                                      const SceneGraphLayer& layer,
                                                      const std::string& ns);
 
-visualization_msgs::MarkerArray makeLayerLabelMarkers(const std_msgs::Header& header,
-                                                      const StaticLayerInfo& info,
-                                                      const SceneGraphLayer& layer,
-                                                      const std::string& ns);
+visualization_msgs::MarkerArray makeLayerNodeTextMarkers(const std_msgs::Header& header,
+                                                         const LayerInfo& info,
+                                                         const SceneGraphLayer& layer,
+                                                         const std::string& ns);
 
 visualization_msgs::Marker makeLayerNodeMarkers(const std_msgs::Header& header,
-                                                const StaticLayerInfo& info,
+                                                const LayerInfo& info,
                                                 const SceneGraphLayer& layer,
                                                 const std::string& ns);
 
 visualization_msgs::Marker makeLayerEdgeMarkers(const std_msgs::Header& header,
-                                                const StaticLayerInfo& config,
+                                                const LayerInfo& config,
                                                 const SceneGraphLayer& layer,
                                                 const std::string& ns);
 
 visualization_msgs::Marker makeMeshEdgesMarker(const std_msgs::Header& header,
-                                               const StaticLayerInfo& info,
-                                               const DynamicSceneGraph& graph,
+                                               const LayerInfo& info,
                                                const SceneGraphLayer& layer,
+                                               const spark_dsg::Mesh& mesh,
                                                const std::string& ns);
 
-visualization_msgs::Marker makeDynamicNodeMarkers(const std_msgs::Header& header,
-                                                  const DynamicLayerInfo& info,
-                                                  const DynamicSceneGraphLayer& layer,
-                                                  const std::string& ns);
-
-visualization_msgs::Marker makeDynamicEdgeMarkers(const std_msgs::Header& header,
-                                                  const DynamicLayerInfo& info,
-                                                  const DynamicSceneGraphLayer& layer,
-                                                  const std::string& ns);
-
-visualization_msgs::Marker makeDynamicLabelMarker(const std_msgs::Header& header,
-                                                  const DynamicLayerInfo& info,
-                                                  const DynamicSceneGraphLayer& layer,
-                                                  const std::string& ns);
+visualization_msgs::Marker makeLayerTextMarker(const std_msgs::Header& header,
+                                               const LayerInfo& info,
+                                               const SceneGraphLayer& layer,
+                                               const std::string& ns);
 
 visualization_msgs::MarkerArray makeGraphEdgeMarkers(const std_msgs::Header& header,
                                                      const GraphInfo& info,

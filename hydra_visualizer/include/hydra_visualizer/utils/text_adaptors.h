@@ -37,36 +37,37 @@
 
 namespace hydra::visualizer {
 
-struct GraphLabelAdaptor {
-  using Ptr = std::shared_ptr<GraphLabelAdaptor>;
-  virtual ~GraphLabelAdaptor() = default;
-  virtual std::string getLabel(const spark_dsg::SceneGraphNode& node) const = 0;
+struct GraphTextAdaptor {
+  using Ptr = std::shared_ptr<GraphTextAdaptor>;
+  virtual ~GraphTextAdaptor() = default;
+  virtual std::string getText(const spark_dsg::SceneGraphNode& node) const = 0;
 };
 
-struct IdLabelAdaptor : GraphLabelAdaptor {
+struct IdTextAdaptor : GraphTextAdaptor {
   struct Config {};
-  explicit IdLabelAdaptor(const Config&) {}
-  virtual ~IdLabelAdaptor() = default;
-  std::string getLabel(const spark_dsg::SceneGraphNode& node) const override;
+  explicit IdTextAdaptor(const Config&) {}
+  virtual ~IdTextAdaptor() = default;
+  std::string getText(const spark_dsg::SceneGraphNode& node) const override;
 };
 
-void declare_config(IdLabelAdaptor::Config& config);
+void declare_config(IdTextAdaptor::Config& config);
 
-struct NameLabelAdaptor : GraphLabelAdaptor {
+struct NameTextAdaptor : GraphTextAdaptor {
   struct Config {};
-  explicit NameLabelAdaptor(const Config&) {}
-  virtual ~NameLabelAdaptor() = default;
-  std::string getLabel(const spark_dsg::SceneGraphNode& node) const override;
+  explicit NameTextAdaptor(const Config&) {}
+  virtual ~NameTextAdaptor() = default;
+  std::string getText(const spark_dsg::SceneGraphNode& node) const override;
 };
 
-void declare_config(NameLabelAdaptor::Config& config);
+void declare_config(NameTextAdaptor::Config& config);
 
-struct NameIdLabelAdaptor : GraphLabelAdaptor {
+struct NameIdTextAdaptor : GraphTextAdaptor {
   struct Config {};
-  explicit NameIdLabelAdaptor(const Config&) {}
-  virtual ~NameIdLabelAdaptor() = default;
-  std::string getLabel(const spark_dsg::SceneGraphNode& node) const override;
+  explicit NameIdTextAdaptor(const Config&) {}
+  virtual ~NameIdTextAdaptor() = default;
+  std::string getText(const spark_dsg::SceneGraphNode& node) const override;
 };
-void declare_config(NameIdLabelAdaptor::Config& config);
+
+void declare_config(NameIdTextAdaptor::Config& config);
 
 }  // namespace hydra::visualizer

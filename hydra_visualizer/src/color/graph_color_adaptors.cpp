@@ -85,7 +85,7 @@ Color LabelColorAdaptor::getColor(const DynamicSceneGraph&,
   try {
     label = node.attributes<SemanticNodeAttributes>().semantic_label;
   } catch (const std::bad_cast&) {
-    VLOG(5) << "Node " << NodeSymbol(node.id).getLabel() << " has no label!";
+    VLOG(5) << "Node " << NodeSymbol(node.id).str() << " has no label!";
   }
 
   return colormap_.getColor(label);
@@ -172,19 +172,17 @@ void declare_config(StatusColorAdaptor::Config& config) {
   field(config.status_functor, "status_functor");
 }
 
-PrefixColorAdaptor::PrefixColorAdaptor(const Config& config)
+PartitionColorAdaptor::PartitionColorAdaptor(const Config& config)
     : config(config), colormap_(config.colormap) {}
 
-Color PrefixColorAdaptor::getColor(const DynamicSceneGraph&,
-                                   const SceneGraphNode& node) const {
-  // distance is measured from first relatively readable character prefix
-  const auto prefix = LayerPrefix::fromId(node.id).key();
-  return colormap_.getColor(static_cast<int>(prefix - '0'));
+Color PartitionColorAdaptor::getColor(const DynamicSceneGraph&,
+                                      const SceneGraphNode& node) const {
+  return colormap_.getColor(node.layer.partition);
 }
 
-void declare_config(PrefixColorAdaptor::Config& config) {
+void declare_config(PartitionColorAdaptor::Config& config) {
   using namespace config;
-  name("PrefixColorAdaptor::Config");
+  name("PartitionColorAdaptor::Config");
   field(config.colormap, "colormap");
 }
 

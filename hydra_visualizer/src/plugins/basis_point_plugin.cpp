@@ -142,7 +142,7 @@ void BasisPointPlugin::fillMarkers(const std_msgs::Header& header,
 
   const auto& places = graph.getLayer(DsgLayers::PLACES);
 
-  visualizer::StaticLayerInfo info{{}, layer_config_.get()};
+  visualizer::LayerInfo info{{}, layer_config_.get()};
   info.graph.layer_z_step = 0.0;
   info.graph.collapse_layers = true;
   info.node_color = [&](const SceneGraphNode& node) {

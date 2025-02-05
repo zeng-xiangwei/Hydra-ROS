@@ -33,7 +33,7 @@
  * purposes notwithstanding any copyright notation herein.
  * -------------------------------------------------------------------------- */
 
-#include "hydra_visualizer/utils/label_adaptors.h"
+#include "hydra_visualizer/utils/text_adaptors.h"
 
 #include <config_utilities/factory.h>
 #include <spark_dsg/node_attributes.h>
@@ -46,41 +46,41 @@ using namespace spark_dsg;
 namespace {
 
 static const auto id_reg =
-    config::RegistrationWithConfig<GraphLabelAdaptor,
-                                   IdLabelAdaptor,
-                                   IdLabelAdaptor::Config>("IdLabelAdaptor");
+    config::RegistrationWithConfig<GraphTextAdaptor,
+                                   IdTextAdaptor,
+                                   IdTextAdaptor::Config>("IdTextAdaptor");
 
 static const auto name_reg =
-    config::RegistrationWithConfig<GraphLabelAdaptor,
-                                   NameLabelAdaptor,
-                                   NameLabelAdaptor::Config>("NameLabelAdaptor");
+    config::RegistrationWithConfig<GraphTextAdaptor,
+                                   NameTextAdaptor,
+                                   NameTextAdaptor::Config>("NameTextAdaptor");
 
 static const auto name_id_reg =
-    config::RegistrationWithConfig<GraphLabelAdaptor,
-                                   NameIdLabelAdaptor,
-                                   NameIdLabelAdaptor::Config>("NameIdLabelAdaptor");
+    config::RegistrationWithConfig<GraphTextAdaptor,
+                                   NameIdTextAdaptor,
+                                   NameIdTextAdaptor::Config>("NameIdTextAdaptor");
 
 }  // namespace
 
-void declare_config(IdLabelAdaptor::Config&) {}
+void declare_config(IdTextAdaptor::Config&) {}
 
-std::string IdLabelAdaptor::getLabel(const SceneGraphNode& node) const {
-  return NodeSymbol(node.id).getLabel();
+std::string IdTextAdaptor::getText(const SceneGraphNode& node) const {
+  return NodeSymbol(node.id).str();
 }
 
-void declare_config(NameLabelAdaptor::Config&) {}
+void declare_config(NameTextAdaptor::Config&) {}
 
-std::string NameLabelAdaptor::getLabel(const SceneGraphNode& node) const {
+std::string NameTextAdaptor::getText(const SceneGraphNode& node) const {
   try {
     return node.attributes<SemanticNodeAttributes>().name;
   } catch (const std::bad_cast&) {
     return "";
   }
 }
-void declare_config(NameIdLabelAdaptor::Config&) {}
+void declare_config(NameIdTextAdaptor::Config&) {}
 
-std::string NameIdLabelAdaptor::getLabel(const SceneGraphNode& node) const {
-  std::string id = NodeSymbol(node.id).getLabel();
+std::string NameIdTextAdaptor::getText(const SceneGraphNode& node) const {
+  std::string id = NodeSymbol(node.id).str();
   try {
     std::string name = node.attributes<SemanticNodeAttributes>().name;
     return name + " : " + id;

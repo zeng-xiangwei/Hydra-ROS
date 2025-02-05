@@ -52,7 +52,7 @@ class FootprintPlugin : public VisualizerPlugin {
     double mesh_alpha = 0.6;
     double footprint_radius = 0.5;
     size_t num_samples = 100;
-    spark_dsg::LayerId layer_id = spark_dsg::DsgLayers::PLACES;
+    std::string layer = spark_dsg::DsgLayers::PLACES;
   } const config;
 
   FootprintPlugin(const Config& config,

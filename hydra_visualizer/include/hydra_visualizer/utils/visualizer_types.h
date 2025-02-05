@@ -37,7 +37,6 @@
 #include <spark_dsg/dynamic_scene_graph.h>
 #include <std_msgs/ColorRGBA.h>
 
-#include "hydra_visualizer/DynamicLayerVisualizerConfig.h"
 #include "hydra_visualizer/LayerVisualizerConfig.h"
 #include "hydra_visualizer/VisualizerConfig.h"
 
@@ -48,7 +47,7 @@ using FilterFunction = std::function<bool(const spark_dsg::SceneGraphNode&)>;
 using NodeColorFunction =
     std::function<spark_dsg::Color(const spark_dsg::SceneGraphNode&)>;
 
-using NodeLabelFunction = std::function<std::string(const spark_dsg::SceneGraphNode&)>;
+using NodeTextFunction = std::function<std::string(const spark_dsg::SceneGraphNode&)>;
 
 using EdgeColorFunction =
     std::function<spark_dsg::Color(const spark_dsg::SceneGraphNode&,
@@ -60,7 +59,7 @@ struct DefaultNodeColorFunction {
   spark_dsg::Color operator()(const spark_dsg::SceneGraphNode& node) const;
 };
 
-struct DefaultNodeLabelFunction {
+struct DefaultNodeTextFunction {
   std::string operator()(const spark_dsg::SceneGraphNode& node) const;
 };
 
@@ -71,21 +70,17 @@ struct DefaultEdgeColorFunction {
                               bool is_source) const;
 };
 
-template <typename ConfigT>
 struct LayerInfo {
   hydra_visualizer::VisualizerConfig graph;
-  ConfigT layer;
+  hydra_visualizer::LayerVisualizerConfig layer;
   NodeColorFunction node_color = DefaultNodeColorFunction();
-  NodeLabelFunction node_label = DefaultNodeLabelFunction();
+  NodeTextFunction node_text = DefaultNodeTextFunction();
   EdgeColorFunction edge_color = DefaultEdgeColorFunction();
   mutable FilterFunction filter = {};
 
   double getZOffset() const;
   bool shouldVisualize(const spark_dsg::SceneGraphNode& node) const;
 };
-
-using StaticLayerInfo = LayerInfo<hydra_visualizer::LayerVisualizerConfig>;
-using DynamicLayerInfo = LayerInfo<hydra_visualizer::DynamicLayerVisualizerConfig>;
 
 struct GraphInfo {
   struct EdgeInformation {
@@ -97,13 +92,15 @@ struct GraphInfo {
     double target_offset;
   };
 
-  EdgeInformation getEdgeInfo(const spark_dsg::LayerKey& source_layer,
+  LayerInfo getLayerInfo(spark_dsg::LayerKey key) const;
+
+  EdgeInformation getEdgeInfo(spark_dsg::LayerKey source_layer,
                               const spark_dsg::SceneGraphNode& source,
-                              const spark_dsg::LayerKey& target_layer,
+                              spark_dsg::LayerKey target_layer,
                               const spark_dsg::SceneGraphNode& target) const;
 
-  std::map<spark_dsg::LayerId, StaticLayerInfo> layers;
-  std::map<spark_dsg::LayerId, DynamicLayerInfo> dynamic_layers;
+  std::map<spark_dsg::LayerId, LayerInfo> layers;
+  std::map<spark_dsg::LayerId, LayerInfo> layer_partitions;
 };
 
 }  // namespace hydra::visualizer

@@ -53,18 +53,6 @@ using spark_dsg::SemanticNodeAttributes;
 using visualization_msgs::Marker;
 using visualization_msgs::MarkerArray;
 
-struct LayerIdConversion {
-  static std::string toIntermediate(const LayerId& layer_id, std::string&) {
-    return DsgLayers::LayerIdToString(layer_id);
-  }
-
-  static void fromIntermediate(const std::string& layer_name,
-                               LayerId& layer_id,
-                               std::string&) {
-    layer_id = DsgLayers::StringToLayerId(layer_name);
-  }
-};
-
 void declare_config(FootprintPlugin::Config& config) {
   using namespace config;
   name("FootprintPlugin::Config");
@@ -76,7 +64,7 @@ void declare_config(FootprintPlugin::Config& config) {
   field(config.mesh_alpha, "mesh_alpha");
   field(config.footprint_radius, "footprint_radius");
   field(config.num_samples, "num_samples");
-  field<LayerIdConversion>(config.layer_id, "layer_id");
+  field(config.layer, "layer");
 
   check(config.line_width, GT, 0.0, "line_width");
   check(config.line_alpha, GT, 0.0, "line_alpha");
@@ -98,7 +86,7 @@ void FootprintPlugin::draw(const std_msgs::Header& header,
   markers.markers.resize(
       config.draw_boundaries ? (config.draw_boundary_vertices ? 3 : 2) : 1);
 
-  std::string ns = "layer_" + std::to_string(config.layer_id) + "_footprints";
+  std::string ns = config.layer + "_footprints";
   markers.markers[0].header = header;
   markers.markers[0].ns = ns + "_polygons";
   markers.markers[0].id = 0;
@@ -134,7 +122,7 @@ void FootprintPlugin::draw(const std_msgs::Header& header,
     }
   }
 
-  const auto& layer = graph.getLayer(config.layer_id);
+  const auto& layer = graph.getLayer(config.layer);
   for (auto&& [id, node] : layer.nodes()) {
     const auto mean_z = getMeanNeighborHeight(layer, *node);
     const auto& attrs = node->attributes<SemanticNodeAttributes>();

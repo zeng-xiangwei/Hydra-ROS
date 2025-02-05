@@ -41,21 +41,12 @@
 
 namespace hydra::visualizer {
 
-using hydra_visualizer::DynamicLayerVisualizerConfig;
 using hydra_visualizer::LayerVisualizerConfig;
 using hydra_visualizer::VisualizerConfig;
 using spark_dsg::Color;
 using spark_dsg::DynamicSceneGraph;
 using spark_dsg::LayerId;
 using spark_dsg::SceneGraphNode;
-
-const std::string& getColorMode(const LayerVisualizerConfig& config) {
-  return config.marker_color_mode;
-}
-
-const std::string& getColorMode(const DynamicLayerVisualizerConfig& config) {
-  return config.node_color_mode;
-}
 
 ColorManager::ColorManager(const ros::NodeHandle& nh, spark_dsg::LayerId layer)
     : has_change_(false), nh_(nh, "color_settings"), layer_(layer) {
@@ -107,37 +98,37 @@ void ColorManager::callback(const std_msgs::String& msg) {
   setAdaptor();
 }
 
-LabelManager::LabelManager(const ros::NodeHandle& nh)
-    : has_change_(false), nh_(nh, "label_settings") {
+TextManager::TextManager(const ros::NodeHandle& nh)
+    : has_change_(false), nh_(nh, "text_settings") {
   // NOTE(nathan) this is ugly but probably the easiest way to parse the current
   // settings from ros
   std::stringstream ss;
   ss << config::internal::rosToYaml(nh_);
   curr_contents_ = ss.str();
-  sub_ = nh_.subscribe("", 1, &LabelManager::callback, this);
+  sub_ = nh_.subscribe("", 1, &TextManager::callback, this);
 }
 
-LabelManager::LabelFunc LabelManager::get() const {
+TextManager::TextFunc TextManager::get() const {
   if (!adaptor_) {
-    return DefaultNodeLabelFunction();
+    return DefaultNodeTextFunction();
   }
 
-  return [this](const SceneGraphNode& node) { return adaptor_->getLabel(node); };
+  return [this](const SceneGraphNode& node) { return adaptor_->getText(node); };
 }
 
-void LabelManager::set(const std::string& mode) {
+void TextManager::set(const std::string& mode) {
   if (mode_ != mode) {
     mode_ = mode;
     setAdaptor();
   }
 }
 
-void LabelManager::setAdaptor() {
+void TextManager::setAdaptor() {
   has_change_ = true;
   try {
     auto node = YAML::Load(curr_contents_);
     node["type"] = mode_;
-    adaptor_ = config::createFromYaml<GraphLabelAdaptor>(node);
+    adaptor_ = config::createFromYaml<GraphTextAdaptor>(node);
     VLOG(5) << "Attempting creation from " << node << " success: (" << std::boolalpha
             << (adaptor_ != nullptr) << ")";
   } catch (const std::exception& e) {
@@ -146,13 +137,66 @@ void LabelManager::setAdaptor() {
   }
 }
 
-bool LabelManager::hasChange() const { return has_change_; }
+bool TextManager::hasChange() const { return has_change_; }
 
-void LabelManager::clearChangeFlag() { has_change_ = false; }
+void TextManager::clearChangeFlag() { has_change_ = false; }
 
-void LabelManager::callback(const std_msgs::String& msg) {
+void TextManager::callback(const std_msgs::String& msg) {
   curr_contents_ = msg.data;
   setAdaptor();
+}
+
+LayerConfig::LayerConfig(const ros::NodeHandle& nh,
+                         const std::string& ns,
+                         spark_dsg::LayerId layer)
+    : color(std::make_unique<ColorManager>(ros::NodeHandle(nh, ns), layer)),
+      text(std::make_unique<TextManager>(ros::NodeHandle(nh, ns))),
+      config(std::make_unique<ConfigWrapper<LayerVisualizerConfig>>(nh, ns)) {
+  setCallback();
+}
+
+LayerConfig::LayerConfig(LayerConfig&& other)
+    : color(std::move(other.color)),
+      text(std::move(other.text)),
+      config(std::move(other.config)) {
+  setCallback();
+}
+
+LayerConfig& LayerConfig::operator=(LayerConfig&& other) {
+  color = std::move(other.color);
+  text = std::move(other.text);
+  config = std::move(other.config);
+  setCallback();
+  return *this;
+}
+
+LayerInfo LayerConfig::getInfo(const spark_dsg::DynamicSceneGraph& graph) const {
+  LayerInfo info;
+  info.graph = ConfigManager::instance().getVisualizerConfig();
+  info.layer = config->get();
+  info.node_color = color->get(graph);
+  info.node_text = text->get();
+  return info;
+}
+
+bool LayerConfig::hasChange() const {
+  return color->hasChange() || text->hasChange() || config->hasChange();
+}
+
+void LayerConfig::clearChangeFlag() {
+  color->clearChangeFlag();
+  text->clearChangeFlag();
+  config->clearChangeFlag();
+}
+
+void LayerConfig::setCallback() {
+  const auto curr = config->get();
+  color->set(curr.node_color_mode);
+  text->set(curr.text_mode);
+  config->setUpdateCallback([this](const auto& config) {
+    color->set(config.node_color_mode);
+    text->set(config.text_mode);
+  });
 }
 
 ConfigManager::ConfigManager() : nh_("~") {}
@@ -160,7 +204,7 @@ ConfigManager::ConfigManager() : nh_("~") {}
 ConfigManager::~ConfigManager() {
   visualizer_config_.reset();
   layers_.clear();
-  dynamic_layers_.clear();
+  layer_partitions_.clear();
 }
 
 ConfigManager& ConfigManager::instance() {
@@ -180,7 +224,7 @@ void ConfigManager::reset() {
   auto& curr = instance();
   curr.visualizer_config_.reset();
   curr.layers_.clear();
-  curr.dynamic_layers_.clear();
+  curr.layer_partitions_.clear();
 }
 
 void ConfigManager::reset(const DynamicSceneGraph& graph) {
@@ -189,14 +233,14 @@ void ConfigManager::reset(const DynamicSceneGraph& graph) {
   // initialize the global config
   instance().getVisualizerConfig();
 
-  for (const auto layer : graph.layer_ids) {
+  for (const auto layer : graph.layer_ids()) {
     // this initializes the underlying config even if we don't use the return
     instance().getLayerConfig(layer);
   }
 
-  for (const auto& [layer_id, layers] : graph.dynamicLayers()) {
+  for (const auto& [layer_id, partitions] : graph.layer_partitions()) {
     // this initializes the underlying config even if we don't use the return
-    instance().getDynamicLayerConfig(layer_id);
+    instance().getPartitionLayerConfig(layer_id);
   }
 }
 
@@ -206,7 +250,7 @@ bool ConfigManager::hasChange() const {
     has_changed |= id_config_pair.second.hasChange();
   }
 
-  for (const auto& id_config_pair : dynamic_layers_) {
+  for (const auto& id_config_pair : layer_partitions_) {
     has_changed |= id_config_pair.second.hasChange();
   }
 
@@ -222,7 +266,7 @@ void ConfigManager::clearChangeFlags() {
     id_config_pair.second.clearChangeFlag();
   }
 
-  for (auto& id_config_pair : dynamic_layers_) {
+  for (auto& id_config_pair : layer_partitions_) {
     id_config_pair.second.clearChangeFlag();
   }
 }
@@ -236,21 +280,21 @@ const VisualizerConfig& ConfigManager::getVisualizerConfig() const {
   return visualizer_config_->get();
 }
 
-const StaticLayerConfig& ConfigManager::getLayerConfig(LayerId layer) const {
+const LayerConfig& ConfigManager::getLayerConfig(LayerId layer) const {
   auto iter = layers_.find(layer);
   if (iter == layers_.end()) {
     const auto ns = "config/layer" + std::to_string(layer);
-    iter = layers_.emplace(layer, StaticLayerConfig(nh_, ns, layer)).first;
+    iter = layers_.emplace(layer, LayerConfig(nh_, ns, layer)).first;
   }
 
   return iter->second;
 }
 
-const DynamicLayerConfig& ConfigManager::getDynamicLayerConfig(LayerId layer) const {
-  auto iter = dynamic_layers_.find(layer);
-  if (iter == dynamic_layers_.end()) {
-    const std::string ns = "config/dynamic_layer/layer" + std::to_string(layer);
-    iter = dynamic_layers_.emplace(layer, DynamicLayerConfig(nh_, ns, layer)).first;
+const LayerConfig& ConfigManager::getPartitionLayerConfig(LayerId layer) const {
+  auto iter = layer_partitions_.find(layer);
+  if (iter == layer_partitions_.end()) {
+    const std::string ns = "config/partitions/layer" + std::to_string(layer);
+    iter = layer_partitions_.emplace(layer, LayerConfig(nh_, ns, layer)).first;
   }
 
   return iter->second;

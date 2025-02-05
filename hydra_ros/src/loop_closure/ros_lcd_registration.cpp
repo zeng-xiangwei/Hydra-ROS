@@ -92,7 +92,8 @@ RegistrationSolution DsgAgentSolver::solve(const DynamicSceneGraph& dsg,
   msg.request.match_robot = getRobotIdFromNode(dsg, match_id);
   msg.request.query = getFrameIdFromNode(dsg, query_id);
   msg.request.match = getFrameIdFromNode(dsg, match_id);
-  uint64_t timestamp = dsg.getNode(query_id).timestamp.value().count();
+  uint64_t timestamp =
+      dsg.getNode(query_id).attributes<AgentNodeAttributes>().timestamp.count();
 
   ScopedTimer timer("lcd/register_agent", timestamp, true, 2, false);
 
@@ -107,8 +108,8 @@ RegistrationSolution DsgAgentSolver::solve(const DynamicSceneGraph& dsg,
           << ", frame: " << msg.request.match;
 
   if (!msg.response.valid) {
-    VLOG(1) << "Visual registration failed: " << NodeSymbol(query_id).getLabel()
-            << " -> " << NodeSymbol(match_id).getLabel();
+    VLOG(1) << "Visual registration failed: " << NodeSymbol(query_id).str()
+            << " -> " << NodeSymbol(match_id).str();
     return {};
   }
 

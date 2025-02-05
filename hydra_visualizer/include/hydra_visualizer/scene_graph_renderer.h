@@ -66,14 +66,10 @@ class SceneGraphRenderer {
 
  protected:
   virtual void drawLayer(const std_msgs::Header& header,
-                         const visualizer::StaticLayerInfo& info,
+                         const visualizer::LayerInfo& info,
                          const spark_dsg::SceneGraphLayer& layer,
+                         const spark_dsg::Mesh* mesh,
                          MarkerArray& msg);
-
-  virtual void drawDynamicLayer(const std_msgs::Header& header,
-                                const visualizer::DynamicLayerInfo& info,
-                                const spark_dsg::DynamicSceneGraphLayer& layer,
-                                MarkerArray& msg);
 
  protected:
   ros::NodeHandle nh_;
