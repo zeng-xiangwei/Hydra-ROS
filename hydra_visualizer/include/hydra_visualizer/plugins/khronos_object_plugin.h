@@ -118,7 +118,7 @@ class KhronosObjectPlugin : public VisualizerPlugin {
     int id_color_revolutions = 10;
 
     //! Layer to draw objects for
-    spark_dsg::LayerId layer = spark_dsg::DsgLayers::OBJECTS;
+    std::string layer = spark_dsg::DsgLayers::OBJECTS;
   } const config;
 
   // Construction.
