@@ -17,7 +17,7 @@
 
     <!-- Sensor frame for volumetric mapping. LiDAR uses LiDAR frame, camera uses camera's pose frame -->
     <arg name="sensor_frame" default="$(eval arg('robot_name') + '/velodyne_link' if arg('sensor_type') == 'velodyne16' else
-                                             (arg('robot_name') + '/left_cam' if arg('sensor_type') == 'rgbd' else
+                                             (arg('robot_name') + '/forward_infra1_optical_frame' if arg('sensor_type') == 'rgbd' else
                                              arg('robot_name') + '/ouster_link'))"/> 
 
   <arg name="hydra_config_path" default="$(find hydra)/config/datasets/kimera_multi_$(arg sensor_type).yaml" 
@@ -31,6 +31,7 @@
 
     <arg name="use_prerecorded_semantics" default="false" doc="Use precorded labels as input"/>
 
+    <arg name="rgb_decompressed_topic" default="/$(arg robot_name)/forward/color/image_raw"/>
     <arg name="rgb_topic" default="/$(arg robot_name)/forward/color/image_raw/compressed"/>
     <arg name="rgb_info_topic" default="/$(arg robot_name)/forward/color/camera_info"/>
     <arg name="depth_topic" default="/$(arg robot_name)/forward/depth/image_rect_raw"/>
@@ -79,8 +80,10 @@
 
         <remap from="hydra_ros_node/input/lidar_sensor/pointcloud" to="$(arg labeled_pointcloud_topic)"/>
         <include file="$(find hydra_ros)/launch/hydra.launch" pass_all_args="true">
-             <arg name="dataset_name" default="$(eval 'kimera_multi_' + arg('robot_name') + '_lidar')" doc="`dataset_name` calls the sensor type, so this should be changed depending on the robot mode"/>
-             <arg name="input_config_path" default="$(find hydra_ros)/config/datasets/kimera_multi_$(arg sensor_type).yaml"/>
+            <arg name="dataset_name" default="$(eval 'kimera_multi_' + arg('robot_name') + '_lidar')" doc="`dataset_name` calls the sensor type, so this should be changed depending on the robot mode"/>
+            <arg name="input_config_path" default="$(find hydra_ros)/config/datasets/kimera_multi_$(arg sensor_type).yaml"/>
+            <arg name="rviz_path" default="$(find hydra_ros)/rviz/kimera_multi_$(arg robot_name).rviz"/>
+            <arg name="map_frame" default="$(arg robot_name)/map"/>
         </include>
     </group>
 
@@ -90,14 +93,14 @@
         <arg name="sensor_max_range" default="5.0" doc="maximum sensor range in meters"/>
 
         <remap from="hydra_ros_node/input/left_cam/depth_registered/image_rect" to="$(arg depth_topic)"/>
-        <remap from="hydra_ros_node/input/left_cam/rgb/image_raw" to="$(arg rgb_topic)"/>
+        <remap from="hydra_ros_node/input/left_cam/rgb/image_raw" to="$(arg rgb_decompressed_topic)"/>
         <remap from="hydra_ros_node/input/left_cam/rgb/camera_info" to="$(arg rgb_info_topic)"/>
         <remap from="hydra_ros_node/input/left_cam/semantic/image_raw" to="$(arg label_topic)"/>
         <include file="$(find hydra_ros)/launch/hydra.launch" pass_all_args="true">
-          <arg name="rgb_image_transport" value="$(eval 'compressed' arg('use_compressed_transport') else 'raw')"/>
-          <arg name="dataset_name" default="$(eval 'kimera_multi_' + arg('sensor_type'))" doc="`dataset_name` calls the sensor type, so this should be changed depending on the robot mode"/>
-          <arg name="input_config_path" default="$(find hydra_ros)/config/datasets/kimera_multi_$(arg sensor_type).yaml"/>
-          <arg name="rviz_path" default="$(find hydra_ros)/rviz/kimera_multi_$(arg robot_name).rviz"/>
+            <arg name="dataset_name" default="$(eval 'kimera_multi_' + arg('sensor_type'))" doc="`dataset_name` calls the sensor type, so this should be changed depending on the robot mode"/>
+            <arg name="input_config_path" default="$(find hydra_ros)/config/datasets/kimera_multi_$(arg sensor_type).yaml"/>
+            <arg name="rviz_path" default="$(find hydra_ros)/rviz/kimera_multi_$(arg robot_name).rviz"/>
+            <arg name="map_frame" default="$(arg robot_name)/map"/>
         </include>
     </group>
 </launch>
