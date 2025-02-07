@@ -449,37 +449,4 @@ MarkerArray drawGvdClusters(const GvdGraph& graph,
   return marker;
 }
 
-MarkerArray drawPlaceFreespace(const std_msgs::Header& header,
-                               const SceneGraphLayer& layer,
-                               const std::string& ns,
-                               const Color& color) {
-  MarkerArray spheres;
-  size_t id = 0;
-  for (const auto& id_node_pair : layer.nodes()) {
-    const auto& attrs = id_node_pair.second->attributes<PlaceNodeAttributes>();
-
-    Marker marker;
-    marker.header = header;
-    marker.type = Marker::SPHERE;
-    marker.action = visualization_msgs::Marker::ADD;
-    marker.id = id;
-    marker.ns = ns;
-
-    marker.scale.x = 2 * attrs.distance;
-    marker.scale.y = 2 * attrs.distance;
-    marker.scale.z = 2 * attrs.distance;
-    marker.pose.orientation.w = 1.0;
-    marker.pose.orientation.x = 0.0;
-    marker.pose.orientation.y = 0.0;
-    marker.pose.orientation.z = 0.0;
-    tf2::convert(id_node_pair.second->attributes().position, marker.pose.position);
-
-    marker.color = visualizer::makeColorMsg(color);
-    spheres.markers.push_back(marker);
-    ++id;
-  }
-
-  return spheres;
-}
-
 }  // namespace hydra

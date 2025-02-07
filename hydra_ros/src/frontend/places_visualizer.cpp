@@ -150,11 +150,6 @@ void PlacesVisualizer::visualizeExtractor(
     return msg;
   });
 
-  pubs_.publish("freespace_viz", header, [&]() -> MarkerArray {
-    const Color color(255, 0, 0, 255 * gvd_config_.get().freespace_sphere_alpha);
-    return drawPlaceFreespace(header, graph, "freespace", color);
-  });
-
   pubs_.publish("gvd_graph_viz", header, [&]() -> MarkerArray {
     return drawGvdGraph(
         extractor.getGvdGraph(), gvd_config_.get(), colormap_, "gvd_graph");

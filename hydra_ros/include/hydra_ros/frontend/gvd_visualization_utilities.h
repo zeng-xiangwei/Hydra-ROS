@@ -91,9 +91,4 @@ visualization_msgs::MarkerArray drawGvdClusters(
     const visualizer::DiscreteColormap& cmap = {},
     size_t marker_id = 0);
 
-visualization_msgs::MarkerArray drawPlaceFreespace(const std_msgs::Header& header,
-                                                   const SceneGraphLayer& layer,
-                                                   const std::string& ns,
-                                                   const spark_dsg::Color& color);
-
 }  // namespace hydra

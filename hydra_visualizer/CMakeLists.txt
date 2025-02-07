@@ -51,6 +51,7 @@ add_library(
   src/groundtruth/region_publisher.cpp
   src/groundtruth/bounding_box_publisher.cpp
   src/plugins/basis_point_plugin.cpp
+  src/plugins/places_freespace_plugin.cpp
   src/plugins/khronos_object_plugin.cpp
   src/plugins/mesh_plugin.cpp
   src/plugins/footprint_plugin.cpp
