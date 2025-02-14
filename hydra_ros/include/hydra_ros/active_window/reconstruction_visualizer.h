@@ -104,6 +104,7 @@ class ReconstructionVisualizer : public ActiveWindowModule::Sink {
   ros::NodeHandle nh_;
   MarkerGroupPub pubs_;
   ros::Publisher active_mesh_pub_;
+  ros::Publisher pose_pub_;
   ImagePublisherGroup image_pubs_;
   RosPublisherGroup<sensor_msgs::PointCloud2> cloud_pubs_;
   const visualizer::RangeColormap colormap_;

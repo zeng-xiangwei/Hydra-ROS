@@ -124,6 +124,7 @@ ReconstructionVisualizer::ReconstructionVisualizer(const Config& config)
       nh_(NodeHandleFactory::getNodeHandle(config.ns)),
       pubs_(nh_),
       active_mesh_pub_(nh_.advertise<kimera_pgmo_msgs::KimeraPgmoMesh>("mesh", 1)),
+      pose_pub_(nh_.advertise<geometry_msgs::PoseStamped>("pose", 10)),
       image_pubs_(nh_),
       cloud_pubs_(nh_),
       colormap_(config.colormap),
@@ -145,6 +146,18 @@ void ReconstructionVisualizer::call(uint64_t timestamp_ns,
   std_msgs::Header header;
   header.frame_id = GlobalInfo::instance().getFrames().map;
   header.stamp.fromNSec(timestamp_ns);
+
+  geometry_msgs::PoseStamped pose_msg;
+  pose_msg.header = header;
+  pose_msg.pose.position.x = pose.translation().x();
+  pose_msg.pose.position.y = pose.translation().y();
+  pose_msg.pose.position.z = pose.translation().z();
+  const Eigen::Quaterniond q(pose.rotation());
+  pose_msg.pose.orientation.x = q.x();
+  pose_msg.pose.orientation.y = q.y();
+  pose_msg.pose.orientation.z = q.z();
+  pose_msg.pose.orientation.w = q.w();
+  pose_pub_.publish(pose_msg);
 
   const RangeColormap cmap(RangeColormap::Config{});
   const VoxelSliceConfig slice{config.slice_height, config.use_relative_height};

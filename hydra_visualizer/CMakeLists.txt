@@ -55,6 +55,7 @@ add_library(
   src/plugins/khronos_object_plugin.cpp
   src/plugins/mesh_plugin.cpp
   src/plugins/footprint_plugin.cpp
+  src/plugins/pose_plugin.cpp
   src/utils/config_manager.cpp
   src/utils/ear_clipping.cpp
   src/utils/marker_group_pub.cpp

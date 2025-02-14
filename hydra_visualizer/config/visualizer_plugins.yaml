@@ -14,6 +14,9 @@ plugins:
   khronos_objects:
     type: KhronosObjectPlugin
     dynamic_color_mode: CONSTANT # ID, SEMANTIC, CONSTANT
+  agent_poses:
+    type: PosePlugin
+    num_to_skip: 0
 # dynamic reconfigure settings
 places_basis_points:
   graph:
