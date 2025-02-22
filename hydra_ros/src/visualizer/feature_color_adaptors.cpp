@@ -214,7 +214,8 @@ NearestFeatureLabel::NearestFeatureLabel(const Config& config)
       metric_(config.metric.create()),
       features_(config.features.create()) {}
 
-std::string NearestFeatureLabel::getText(const SceneGraphNode& node) const {
+std::string NearestFeatureLabel::getText(const DynamicSceneGraph&,
+                                         const SceneGraphNode& node) const {
   if (!features_ || !metric_) {
     return "";
   }

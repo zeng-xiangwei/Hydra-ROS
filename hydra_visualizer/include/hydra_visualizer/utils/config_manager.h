@@ -70,7 +70,7 @@ class TextManager {
  public:
   using TextFunc = std::function<std::string(const spark_dsg::SceneGraphNode&)>;
   explicit TextManager(const ros::NodeHandle& nh);
-  TextFunc get() const;
+  TextFunc get(const spark_dsg::DynamicSceneGraph& graph) const;
   void set(const std::string& mode);
   bool hasChange() const;
   void clearChangeFlag();

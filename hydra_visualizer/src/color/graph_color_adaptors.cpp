@@ -274,4 +274,26 @@ void declare_config(ValueColorAdaptor::Config& config) {
   field(config.value_functor, "value_functor");
 }
 
+LabelDistributionAdaptor::LabelDistributionAdaptor(const Config& config)
+    : config(config::checkValid(config)), colormap_(config.colormap) {}
+
+Color LabelDistributionAdaptor::getColor(const DynamicSceneGraph&,
+                                         const SceneGraphNode& node) const {
+  SemanticLabel label = SemanticNodeAttributes::NO_SEMANTIC_LABEL;
+  auto attrs = node.tryAttributes<SemanticNodeAttributes>();
+  if (attrs && attrs->hasFeature()) {
+    Eigen::Index max_idx;
+    attrs->semantic_feature.col(0).maxCoeff(&max_idx);
+    label = static_cast<SemanticLabel>(max_idx);
+  }
+
+  return colormap_.getColor(label);
+}
+
+void declare_config(LabelDistributionAdaptor::Config& config) {
+  using namespace config;
+  name("LabelDistributionAdaptor::Config");
+  field(config.colormap, "colormap");
+}
+
 }  // namespace hydra

@@ -279,6 +279,22 @@ struct ValueColorAdaptor : GraphColorAdaptor {
 
 void declare_config(ValueColorAdaptor::Config& config);
 
+struct LabelDistributionAdaptor : GraphColorAdaptor {
+  struct Config {
+    visualizer::CategoricalColormap::Config colormap;
+  } const config;
+
+  explicit LabelDistributionAdaptor(const Config& config);
+  spark_dsg::Color getColor(const spark_dsg::DynamicSceneGraph& graph,
+                            const spark_dsg::SceneGraphNode& node) const override;
+
+ private:
+  const visualizer::CategoricalColormap colormap_;
+  REGISTER_COLOR_ADAPTOR(LabelDistributionAdaptor);
+};
+
+void declare_config(LabelDistributionAdaptor::Config& config);
+
 #undef REGISTER_COLOR_ADAPTOR
 
 }  // namespace hydra

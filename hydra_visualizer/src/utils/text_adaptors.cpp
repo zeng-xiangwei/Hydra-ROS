@@ -38,6 +38,9 @@
 #include <config_utilities/factory.h>
 #include <spark_dsg/node_attributes.h>
 #include <spark_dsg/node_symbol.h>
+#include <spark_dsg/printing.h>
+
+#include <sstream>
 
 namespace hydra::visualizer {
 
@@ -50,6 +53,16 @@ static const auto id_reg =
                                    IdTextAdaptor,
                                    IdTextAdaptor::Config>("IdTextAdaptor");
 
+static const auto label_reg =
+    config::RegistrationWithConfig<GraphTextAdaptor,
+                                   LabelTextAdaptor,
+                                   LabelTextAdaptor::Config>("LabelTextAdaptor");
+
+static const auto label_id_reg =
+    config::RegistrationWithConfig<GraphTextAdaptor,
+                                   LabelIdTextAdaptor,
+                                   LabelIdTextAdaptor::Config>("LabelIdTextAdaptor");
+
 static const auto name_reg =
     config::RegistrationWithConfig<GraphTextAdaptor,
                                    NameTextAdaptor,
@@ -60,33 +73,74 @@ static const auto name_id_reg =
                                    NameIdTextAdaptor,
                                    NameIdTextAdaptor::Config>("NameIdTextAdaptor");
 
+inline std::string getNodeName(const SceneGraphNode& node) {
+  const auto attrs = node.tryAttributes<SemanticNodeAttributes>();
+  return attrs ? attrs->name : "";
+}
+
+inline std::string getNodeLabel(const DynamicSceneGraph& graph,
+                                const SceneGraphNode& node,
+                                std::map<std::string, Labelspace>& labelspaces) {
+  const auto attrs = node.tryAttributes<SemanticNodeAttributes>();
+  if (!attrs) {
+    return "";
+  }
+
+  std::stringstream ss;
+  ss << node.layer;
+  const auto key = ss.str();
+
+  auto iter = labelspaces.find(key);
+  if (iter == labelspaces.end()) {
+    iter = labelspaces
+               .emplace(key,
+                        Labelspace::fromMetadata(
+                            graph, node.layer.layer, node.layer.partition))
+               .first;
+  }
+
+  return iter->second.getCategory(*attrs);
+}
+
 }  // namespace
 
 void declare_config(IdTextAdaptor::Config&) {}
 
-std::string IdTextAdaptor::getText(const SceneGraphNode& node) const {
+std::string IdTextAdaptor::getText(const DynamicSceneGraph&,
+                                   const SceneGraphNode& node) const {
   return NodeSymbol(node.id).str();
+}
+
+void declare_config(LabelTextAdaptor::Config&) {}
+
+std::string LabelTextAdaptor::getText(const DynamicSceneGraph& graph,
+                                      const SceneGraphNode& node) const {
+  return getNodeLabel(graph, node, labelspaces_);
+}
+
+void declare_config(LabelIdTextAdaptor::Config&) {}
+
+std::string LabelIdTextAdaptor::getText(const DynamicSceneGraph& graph,
+                                        const SceneGraphNode& node) const {
+  const auto id = NodeSymbol(node.id).str();
+  const auto label = getNodeLabel(graph, node, labelspaces_);
+  return label.empty() ? id : label + " : " + id;
 }
 
 void declare_config(NameTextAdaptor::Config&) {}
 
-std::string NameTextAdaptor::getText(const SceneGraphNode& node) const {
-  try {
-    return node.attributes<SemanticNodeAttributes>().name;
-  } catch (const std::bad_cast&) {
-    return "";
-  }
+std::string NameTextAdaptor::getText(const DynamicSceneGraph&,
+                                     const SceneGraphNode& node) const {
+  return getNodeName(node);
 }
+
 void declare_config(NameIdTextAdaptor::Config&) {}
 
-std::string NameIdTextAdaptor::getText(const SceneGraphNode& node) const {
-  std::string id = NodeSymbol(node.id).str();
-  try {
-    std::string name = node.attributes<SemanticNodeAttributes>().name;
-    return name + " : " + id;
-  } catch (const std::bad_cast&) {
-    return id;
-  }
+std::string NameIdTextAdaptor::getText(const DynamicSceneGraph&,
+                                       const SceneGraphNode& node) const {
+  const auto id = NodeSymbol(node.id).str();
+  const auto name = getNodeName(node);
+  return name.empty() ? id : name + " : " + id;
 }
 
 }  // namespace hydra::visualizer

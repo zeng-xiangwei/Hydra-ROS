@@ -108,12 +108,14 @@ TextManager::TextManager(const ros::NodeHandle& nh)
   sub_ = nh_.subscribe("", 1, &TextManager::callback, this);
 }
 
-TextManager::TextFunc TextManager::get() const {
+TextManager::TextFunc TextManager::get(const DynamicSceneGraph& graph) const {
   if (!adaptor_) {
     return DefaultNodeTextFunction();
   }
 
-  return [this](const SceneGraphNode& node) { return adaptor_->getText(node); };
+  return [this, &graph](const SceneGraphNode& node) {
+    return adaptor_->getText(graph, node);
+  };
 }
 
 void TextManager::set(const std::string& mode) {
@@ -175,7 +177,7 @@ LayerInfo LayerConfig::getInfo(const spark_dsg::DynamicSceneGraph& graph) const 
   info.graph = ConfigManager::instance().getVisualizerConfig();
   info.layer = config->get();
   info.node_color = color->get(graph);
-  info.node_text = text->get();
+  info.node_text = text->get(graph);
   return info;
 }
 

@@ -11,7 +11,7 @@ layer2:
   node_use_sphere: false
   use_text: true
   collapse_text: true
-  text_mode: NameTextAdaptor
+  text_mode: LabelTextAdaptor
   text_height: 0.5
   text_scale: 0.45
   use_bounding_box: true

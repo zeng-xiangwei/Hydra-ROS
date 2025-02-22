@@ -34,29 +34,57 @@
  * -------------------------------------------------------------------------- */
 #pragma once
 #include <spark_dsg/dynamic_scene_graph.h>
+#include <spark_dsg/labelspace.h>
 
 namespace hydra::visualizer {
 
 struct GraphTextAdaptor {
   using Ptr = std::shared_ptr<GraphTextAdaptor>;
   virtual ~GraphTextAdaptor() = default;
-  virtual std::string getText(const spark_dsg::SceneGraphNode& node) const = 0;
+  virtual std::string getText(const spark_dsg::DynamicSceneGraph& graph,
+                              const spark_dsg::SceneGraphNode& node) const = 0;
 };
 
 struct IdTextAdaptor : GraphTextAdaptor {
   struct Config {};
   explicit IdTextAdaptor(const Config&) {}
   virtual ~IdTextAdaptor() = default;
-  std::string getText(const spark_dsg::SceneGraphNode& node) const override;
+  std::string getText(const spark_dsg::DynamicSceneGraph& graph,
+                      const spark_dsg::SceneGraphNode& node) const override;
 };
 
 void declare_config(IdTextAdaptor::Config& config);
+
+struct LabelTextAdaptor : GraphTextAdaptor {
+  struct Config {};
+  explicit LabelTextAdaptor(const Config&) {}
+  virtual ~LabelTextAdaptor() = default;
+  std::string getText(const spark_dsg::DynamicSceneGraph& graph,
+                      const spark_dsg::SceneGraphNode& node) const override;
+
+  mutable std::map<std::string, spark_dsg::Labelspace> labelspaces_;
+};
+
+void declare_config(LabelTextAdaptor::Config& config);
+
+struct LabelIdTextAdaptor : GraphTextAdaptor {
+  struct Config {};
+  explicit LabelIdTextAdaptor(const Config&) {}
+  virtual ~LabelIdTextAdaptor() = default;
+  std::string getText(const spark_dsg::DynamicSceneGraph& graph,
+                      const spark_dsg::SceneGraphNode& node) const override;
+
+  mutable std::map<std::string, spark_dsg::Labelspace> labelspaces_;
+};
+
+void declare_config(LabelIdTextAdaptor::Config& config);
 
 struct NameTextAdaptor : GraphTextAdaptor {
   struct Config {};
   explicit NameTextAdaptor(const Config&) {}
   virtual ~NameTextAdaptor() = default;
-  std::string getText(const spark_dsg::SceneGraphNode& node) const override;
+  std::string getText(const spark_dsg::DynamicSceneGraph& graph,
+                      const spark_dsg::SceneGraphNode& node) const override;
 };
 
 void declare_config(NameTextAdaptor::Config& config);
@@ -65,7 +93,8 @@ struct NameIdTextAdaptor : GraphTextAdaptor {
   struct Config {};
   explicit NameIdTextAdaptor(const Config&) {}
   virtual ~NameIdTextAdaptor() = default;
-  std::string getText(const spark_dsg::SceneGraphNode& node) const override;
+  std::string getText(const spark_dsg::DynamicSceneGraph& graph,
+                      const spark_dsg::SceneGraphNode& node) const override;
 };
 
 void declare_config(NameIdTextAdaptor::Config& config);

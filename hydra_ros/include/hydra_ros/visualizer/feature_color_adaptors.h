@@ -86,7 +86,8 @@ class NearestFeatureLabel : public visualizer::GraphTextAdaptor {
   } const config;
 
   explicit NearestFeatureLabel(const Config& config);
-  std::string getText(const spark_dsg::SceneGraphNode& node) const override;
+  std::string getText(const spark_dsg::DynamicSceneGraph& graph,
+                      const spark_dsg::SceneGraphNode& node) const override;
 
  private:
   ros::NodeHandle nh_;
