@@ -35,16 +35,17 @@
 #include "hydra_ros/frontend/places_visualizer.h"
 
 #include <config_utilities/config.h>
-#include <config_utilities/parsing/ros.h>
 #include <config_utilities/printing.h>
 #include <hydra/common/global_info.h>
 #include <hydra/frontend/gvd_place_extractor.h>
 #include <hydra_visualizer/color/color_parsing.h>
 #include <hydra_visualizer/color/colormap_utilities.h>
-#include <hydra_visualizer/utils/visualizer_utilities.h>
+#include <hydra_visualizer/drawing.h>
 
 #include "hydra_ros/frontend/gvd_visualization_utilities.h"
-#include "hydra_ros/utils/node_handle_factory.h"
+#include <rclcpp/time.hpp>
+
+#include "hydra_ros/common.h"
 #include "hydra_ros/visualizer/voxel_drawing.h"
 
 namespace hydra {
@@ -53,8 +54,8 @@ using places::GraphExtractor;
 using places::GvdGraph;
 using places::GvdLayer;
 using places::GvdVoxel;
-using visualization_msgs::Marker;
-using visualization_msgs::MarkerArray;
+using visualization_msgs::msg::Marker;
+using visualization_msgs::msg::MarkerArray;
 using visualizer::ContinuousPalette;
 using visualizer::DivergentPalette;
 using visualizer::RangeColormap;
@@ -69,7 +70,7 @@ void declare_config(PlacesVisualizer::Config& config) {
 
 PlacesVisualizer::PlacesVisualizer(const Config& config)
     : config(config),
-      nh_(NodeHandleFactory::getNodeHandle(config.ns)),
+      nh_(getHydraNodeHandle(config.ns)),
       pubs_(nh_),
       gvd_config_(nh_, "gvd"),
       layer_config_(nh_, "graph"),
@@ -81,9 +82,9 @@ void PlacesVisualizer::call(uint64_t timestamp_ns,
                             const Eigen::Isometry3d& pose,
                             const GvdLayer& gvd,
                             const GraphExtractor& extractor) const {
-  std_msgs::Header header;
+  std_msgs::msg::Header header;
   header.frame_id = GlobalInfo::instance().getFrames().map;
-  header.stamp.fromNSec(timestamp_ns);
+  header.stamp = rclcpp::Time(timestamp_ns);
 
   const RangeColormap sdf_cmap(RangeColormap::Config{});
   pubs_.publish("esdf_viz", header, [&]() -> Marker {
@@ -94,7 +95,7 @@ void PlacesVisualizer::call(uint64_t timestamp_ns,
   visualizeExtractor(header, extractor);
 }
 
-void PlacesVisualizer::visualizeGvd(const std_msgs::Header& header,
+void PlacesVisualizer::visualizeGvd(const std_msgs::msg::Header& header,
                                     const GvdLayer& gvd) const {
   pubs_.publish("gvd_viz", header, [&]() -> Marker {
     return drawGvd(gvd_config_.get(), colormap_, gvd, "gvd");
@@ -114,30 +115,29 @@ void PlacesVisualizer::visualizeGvd(const std_msgs::Header& header,
   });
 }
 
-void PlacesVisualizer::visualizeExtractor(const std_msgs::Header& header,
+void PlacesVisualizer::visualizeExtractor(const std_msgs::msg::Header& header,
                                           const GraphExtractor& extractor) const {
   const auto& graph = extractor.getGraph();
   pubs_.publish("graph_viz", header, [&]() -> MarkerArray {
     const auto d_min = gvd_config_.get().gvd_min_distance;
     const auto d_max = gvd_config_.get().gvd_max_distance;
 
-    visualizer::LayerInfo info{hydra_visualizer::VisualizerConfig(),
-                               layer_config_.get()};
-    info.graph.collapse_layers = true;
-    info.graph.layer_z_step = 0.0;
+    visualizer::LayerInfo info(layer_config_.get());
     info.node_color = [&](const SceneGraphNode& node) {
       const auto dist = node.attributes<PlaceNodeAttributes>().distance;
       return colormap_(dist, d_min, d_max);
     };
-    info.edge_color = [&](const auto&, const auto&, const auto& edge, bool) {
-      const auto dist = edge.attributes().weight;
-      return colormap_(dist, d_min, d_max);
-    };
+
+    // TODO(nathan) work custom edge functor back into config
+    /*    info.edge_color = [&](const auto&, const auto&, const auto& edge, bool) {*/
+    /*const auto dist = edge.attributes().weight;*/
+    /*return colormap_(dist, d_min, d_max);*/
+    /*};*/
 
     MarkerArray msg;
     msg.markers.push_back(makeLayerNodeMarkers(header, info, graph, "places_nodes"));
     msg.markers.push_back(makeLayerEdgeMarkers(header, info, graph, "places_edges"));
-    if (info.layer.use_text) {
+    if (info.config.text.draw) {
       const auto text = makeLayerNodeTextMarkers(header, info, graph, "places_text");
       msg.markers.insert(msg.markers.end(), text.markers.begin(), text.markers.end());
     }
