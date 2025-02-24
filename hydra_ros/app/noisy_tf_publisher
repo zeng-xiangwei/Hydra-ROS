@@ -1,14 +1,14 @@
 #!/usr/bin/env python3
 
+import numpy as np
 import rospy
 import tf2_ros
-import numpy as np
 from geometry_msgs.msg import TransformStamped
 from nav_msgs.msg import Odometry
 from scipy.spatial.transform import Rotation as R
 
 
-def invert_pose(p):
+def _invert_pose(p):
     p_inv = np.zeros((4, 4))
     p_inv[:3, :3] = p[:3, :3].T
     p_inv[:3, 3] = -p[:3, :3].T @ p[:3, 3]
@@ -16,8 +16,7 @@ def invert_pose(p):
     return p_inv
 
 
-def mat_from_pose(pose):
-
+def _mat_from_pose(pose):
     pose_out = np.zeros((4, 4))
     q = [pose.orientation.x, pose.orientation.y, pose.orientation.z, pose.orientation.w]
     t = [pose.position.x, pose.position.y, pose.position.z]
@@ -50,23 +49,23 @@ def Exp(rho, theta):
     )
 
 
-def calc_odom_delta(odom_old, odom_new):
-
-    w_T_old = mat_from_pose(odom_old.pose.pose)
-    w_T_new = mat_from_pose(odom_new.pose.pose)
-
-    delta = invert_pose(w_T_old) @ w_T_new
-
+def _calc_odom_delta(odom_old, odom_new):
+    w_T_old = _mat_from_pose(odom_old.pose.pose)
+    w_T_new = _mat_from_pose(odom_new.pose.pose)
+    delta = _invert_pose(w_T_old) @ w_T_new
     return delta
 
 
 class NoisyTransformPublisher:
-    def __init__(self):
+    """Node that republishes TFs with noise added."""
 
+    def __init__(self):
+        """Create the node to publish odom."""
         self.yaw_std_dev = rospy.get_param("~yaw_std_dev")
         self.xyz_std_dev = np.array(rospy.get_param("~xyz_std_dev"))
         self.noisy_tf_parent = rospy.get_param("~noisy_tf_parent")
         self.noisy_tf_child = rospy.get_param("~noisy_tf_child")
+        self.wrong_velocity_frame = rospy.get_param("~wrong_velocity_frame", False)
 
         # Transform broadcaster
         self.br = tf2_ros.TransformBroadcaster()
@@ -78,24 +77,23 @@ class NoisyTransformPublisher:
         self.last_noisy_odom = None
 
         # Odometry subscriber
-        self.odom_sub = rospy.Subscriber("~gt_odom_in", Odometry, self.odom_cb)
+        self.odom_sub = rospy.Subscriber("~gt_odom_in", Odometry, self._odom_cb)
 
-    def odom_cb(self, odom_msg):
-
+    def _odom_cb(self, odom_msg):
         if self.last_gt_odom is None:
             self.last_gt_odom = odom_msg
             self.last_noisy_odom = odom_msg
             return
 
-        pose_delta = calc_odom_delta(self.last_gt_odom, odom_msg)
+        pose_delta = _calc_odom_delta(self.last_gt_odom, odom_msg)
 
-        self.last_noisy_odom = self.add_odom_noise(
+        self.last_noisy_odom = self._add_odom_noise(
             self.last_noisy_odom,
             odom_msg,
             pose_delta,
         )
 
-        self.publish_noisy_transform(
+        self._publish_noisy_transform(
             self.noisy_tf_parent,
             self.noisy_tf_child,
             odom_msg.header.stamp,
@@ -105,8 +103,7 @@ class NoisyTransformPublisher:
         self.odom_pub.publish(self.last_noisy_odom)
         self.last_gt_odom = odom_msg
 
-    def publish_noisy_transform(self, fixed_frame, child_frame, time, noisy_pose):
-        """Publish the noisy transform."""
+    def _publish_noisy_transform(self, fixed_frame, child_frame, time, noisy_pose):
         t = TransformStamped()
         t.header.stamp = time
         t.header.frame_id = fixed_frame
@@ -123,17 +120,11 @@ class NoisyTransformPublisher:
         # Broadcast the noisy transform
         self.br.sendTransform(t)
 
-    def add_odom_noise(
-        self,
-        prev_noisy_odom,
-        cur_gt_odom,
-        pose_delta,
-    ):
-
+    def _add_odom_noise(self, prev_noisy_odom, cur_gt_odom, pose_delta):
         updated_odom = Odometry()
         updated_odom.header = cur_gt_odom.header
 
-        prev_pose = mat_from_pose(prev_noisy_odom.pose.pose)
+        prev_pose = _mat_from_pose(prev_noisy_odom.pose.pose)
         noisy_trans = np.random.normal(scale=self.xyz_std_dev)
         noisy_rot = [0, 0, np.random.normal(scale=self.yaw_std_dev)]
         updated_pose = prev_pose @ pose_delta @ Exp(noisy_trans, noisy_rot)
@@ -157,9 +148,6 @@ class NoisyTransformPublisher:
         R_gt = R.from_quat(q_gt).as_matrix()
         R_noisy = updated_pose[:3, :3]
 
-        # TODO: Check this, I don't think we should need to rotate here but maybe a bug in the sim's velocity frame?
-        rel_rot = (R_gt.T @ R_noisy).T
-
         vel = np.array(
             [
                 cur_gt_odom.twist.twist.linear.x,
@@ -168,12 +156,13 @@ class NoisyTransformPublisher:
             ]
         )
 
-        rot_vel = rel_rot @ vel
+        # NOTE(nathan) some people don't follow the correct body-frame convention
+        if self.wrong_velocity_frame:
+            vel = (R_gt.T @ R_noisy).T @ vel
 
-        updated_odom.twist.twist.linear.x = rot_vel[0]
-        updated_odom.twist.twist.linear.y = rot_vel[1]
-        updated_odom.twist.twist.linear.z = rot_vel[2]
-
+        updated_odom.twist.twist.linear.x = vel[0]
+        updated_odom.twist.twist.linear.y = vel[1]
+        updated_odom.twist.twist.linear.z = vel[2]
         return updated_odom
 
 

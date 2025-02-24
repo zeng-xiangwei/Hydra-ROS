@@ -14,8 +14,7 @@
     <arg name="enable_frontend_output" default="true"/>
     <arg name="enable_places" default="true"/>
     <arg name="bounding_box_type" default="AABB"/>
-    <arg name="use_gt_frame" default="true"/>
-    <arg name="pose_graph_tracker_type" default="$(eval 'PoseGraphFromOdom' if use_gt_frame else 'RosPoseGraphs')"/>
+    <arg name="pose_graph_tracker_type" default="PoseGraphFromOdom"/>
 
     <!-- Backend configuration -->
     <arg name="add_initial_prior" default="true"/>

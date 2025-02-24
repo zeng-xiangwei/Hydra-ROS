@@ -65,7 +65,10 @@ struct InvalidSensor : Sensor {
 
 struct RosExtrinsics : SensorExtrinsics {
   struct Config {
+    //! @brief Override camera info frame ID
     std::string sensor_frame = "";
+    //! @brief Override global robot frame ID
+    std::string robot_frame = "";
   } const config;
 
   explicit RosExtrinsics(const Config& config);

@@ -1,7 +1,0 @@
-yaw_std_dev: 0.001
-xyz_std_dev:
-- 0.001
-- 0.001
-- 0.001
-noisy_tf_parent: world
-noisy_tf_child: base_link_noisy

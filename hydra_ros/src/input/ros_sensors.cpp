@@ -120,8 +120,8 @@ std::optional<sensor_msgs::CameraInfo> getCameraInfo(const rosbag::Bag& bag,
   return std::nullopt;
 }
 
-ParamSensorExtrinsics::Config lookupExtrinsics(const std::string& sensor_frame) {
-  const auto robot_frame = GlobalInfo::instance().getFrames().robot;
+ParamSensorExtrinsics::Config lookupExtrinsics(const std::string& sensor_frame,
+                                               const std::string& robot_frame) {
   const auto pose = lookupTransform(robot_frame, sensor_frame);
   CHECK(pose.is_valid) << "Could not look up extrinsics from ros!";
 
@@ -132,9 +132,9 @@ ParamSensorExtrinsics::Config lookupExtrinsics(const std::string& sensor_frame) 
 }
 
 ParamSensorExtrinsics::Config lookupExtrinsics(const rosbag::Bag& bag,
-                                               const std::string& sensor_frame) {
+                                               const std::string& sensor_frame,
+                                               const std::string& robot_frame) {
   PoseCache cache(bag, true);
-  const auto robot_frame = GlobalInfo::instance().getFrames().robot;
   const auto pose = cache.lookupPose(0, robot_frame, sensor_frame);
   CHECK(pose) << "Could not look up extrinsics from bag!";
 
@@ -160,6 +160,7 @@ void declare_config(RosExtrinsics::Config& config) {
   using namespace config;
   name("RosExtrinsics::Config");
   field(config.sensor_frame, "sensor_frame");
+  field(config.robot_frame, "robot_frame");
 }
 
 void declare_config(RosCamera::Config& config) {
@@ -197,12 +198,16 @@ VirtualSensor loadExtrinsics(const VirtualSensor& sensor,
   const auto contents = config::toYaml(base_config.extrinsics);
   const auto derived = config::fromYaml<RosExtrinsics::Config>(contents);
   const auto frame = derived.sensor_frame.empty() ? sensor_frame : derived.sensor_frame;
+  const auto parent = derived.robot_frame.empty()
+                          ? GlobalInfo::instance().getFrames().robot
+                          : derived.robot_frame;
   if (frame.empty()) {
     LOG(ERROR) << "sensor frame required if not constructing from camera info!";
     return {};
   }
 
-  const auto info = bag ? lookupExtrinsics(*bag, frame) : lookupExtrinsics(frame);
+  const auto info =
+      bag ? lookupExtrinsics(*bag, frame, parent) : lookupExtrinsics(frame, parent);
 
   config::VirtualConfig<SensorExtrinsics> new_config(info);
   base_contents["extrinsics"] = config::toYaml(new_config);

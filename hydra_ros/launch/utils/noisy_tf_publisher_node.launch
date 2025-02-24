@@ -1,9 +1,0 @@
-<launch>
-  <arg name="config_type"/>
-  <arg name="req" default="true"/>
-  <arg name="output" default="screen"/>
-  <remap from="~gt_odom_in" to="/tesse/odom"/>
-  <node pkg="hydra_ros" type="noisy_tf_publisher.py" name="noisy_tf_publisher_node" required="$(arg req)" output="$(arg output)" >
-        <rosparam command="load" file="$(find hydra_ros)/config/noisy_tf_publisher_node.yaml" subst_value="true"/>
-  </node>
-</launch>

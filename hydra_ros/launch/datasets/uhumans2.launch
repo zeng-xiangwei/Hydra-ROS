@@ -1,16 +1,12 @@
 <launch>
-
     <arg name="sim_time_required" default="true"/>
     <param name="use_sim_time" value="$(arg sim_time_required)"/>
 
-    <arg name="use_gt_frame" default="true" doc="use simulator-provided tf frame"/>
     <arg name="use_gt_semantics" default="true" doc="use simulator-provider semantics"/>
     <arg name="color_mesh_by_label" default="false" doc="display mesh colored by semantic label"/>
     <arg name="use_single_channel_label_image" default="false"/>
 
-    <arg name="robot_frame" default="$(eval 'base_link_gt' if use_gt_frame else 'base_link_kimera')" doc="robot body tf frame"/>
-    <arg name="odom_frame" default="$(eval 'world' if use_gt_frame else 'odom')" doc="odometry (map) frame"/>
-    <arg name="sensor_frame" default="$(eval 'left_cam' if use_gt_frame else 'left_cam_kimera')" doc="camera frame"/>
+    <arg name="robot_frame" default="base_link_gt" doc="robot body tf frame"/>
     <arg name="hydra_config_path" default="$(find hydra)/config/datasets/uhumans2.yaml"/>
     <!-- lcd config -->
     <arg name="use_gnn_descriptors" default="false"/>
@@ -25,6 +21,7 @@
     <arg name="use_prerecorded_semantics" default="false" doc="Use precorded labels as input"/>
     <arg name="prerecorded_topic" default="/oneformer/labels/image_raw" doc="Topic containing prerecorded labels"/>
 
+    <arg name="use_gt_frame" value="$(eval robot_frame == 'base_link_gt')"/>
     <arg name="rgb_topic" default="/tesse/left_cam/rgb/image_raw"/>
     <arg name="rgb_info_topic" default="/tesse/left_cam/camera_info"/>
     <arg name="depth_topic" default="/tesse/depth_cam/mono/image_raw"/>
@@ -35,8 +32,25 @@
     <arg name="use_static_tfs" default="true" doc="publish static tfs from file"/>
     <group if="$(arg use_static_tfs)">
         <include file="$(find hydra_ros)/launch/static_tfs/uhumans2_static_tfs.xml"/>
+        <node pkg="tf2_ros" type="static_transform_publisher" name="world_map_bridge_tf" args="0 0 0 0 0 0 1 world map" if="$(arg use_gt_frame)"/>
+        <node pkg="tf2_ros" type="static_transform_publisher" name="map_odom_bridge_tf" args="0 0 0 0 0 0 1 map odom" if="$(arg use_gt_frame)"/>
+    </group>
 
-        <node pkg="tf2_ros" type="static_transform_publisher" name="fake_world_tf" args="0 0 0 0 0 0 1 map world" if="$(arg use_gt_frame)"/>
+    <group if="$(eval robot_frame == 'base_link_noisy')">
+        <arg name="start_gt_lcd" default="true"/>
+        <remap from="noisy_tf_publisher_node/gt_odom_in" to="tesse/odom"/>
+        <remap from="vlc_server_node/camera_info" to="tesse/left_cam/camera_info"/>
+        <remap from="vlc_server_node/image_in" to="tesse/left_cam/rgb/image_raw"/>
+        <remap from="vlc_server_node/depth_in" to="tesse/depth_cam/mono/image_raw"/>
+        <remap from="vlc_server_node/loop_closure_output" to="hydra_ros_node/external_loop_closures"/>
+        <node pkg="tf2_ros" type="static_transform_publisher" name="map_odom_bridge_tf" args="0 0 0 0 0 0 1 map odom"/>
+        <include file="$(find hydra_ros)/launch/utils/noisy_odometry.launch">
+            <arg name="parent_frame" value="odom"/>
+            <arg name="child_frame" value="base_link_noisy"/>
+            <arg name="gt_parent_frame" value="world"/>
+            <arg name="gt_child_frame" value="base_link_gt"/>
+            <arg name="start_gt_lcd" value="$(arg start_gt_lcd)"/>
+        </include>
     </group>
 
     <group unless="$(arg use_gt_semantics)">
@@ -61,5 +75,4 @@
         <arg name="dataset_name" default="uhumans2"/>
         <arg name="rviz_path" default="$(find hydra_ros)/rviz/uhumans2.rviz"/>
     </include>
-
 </launch>
