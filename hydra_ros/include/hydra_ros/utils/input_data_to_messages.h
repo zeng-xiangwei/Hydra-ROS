@@ -44,9 +44,16 @@ struct InputData;
 /**
  * @brief Make a colored image for the current labels in the input data
  */
-sensor_msgs::Image::Ptr makeImage(const std_msgs::Header& header,
-                                  const InputData& sensor_data,
-                                  const std::function<spark_dsg::Color(uint32_t)>& colormap);
+sensor_msgs::Image::Ptr makeImage(
+    const std_msgs::Header& header,
+    const InputData& sensor_data,
+    const std::function<spark_dsg::Color(uint32_t)>& colormap);
+
+/**
+ * @brief Make a colored image for the current labels in the input data
+ */
+sensor_msgs::Image::Ptr makeDepthImage(const std_msgs::Header& header,
+                                       const InputData& sensor_data);
 
 /**
  * @brief Convert the input pointcloud to a ROS type

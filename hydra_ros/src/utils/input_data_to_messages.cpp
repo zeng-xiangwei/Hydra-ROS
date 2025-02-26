@@ -77,6 +77,16 @@ sensor_msgs::Image::Ptr makeImage(const std_msgs::Header& header,
   return msg->toImageMsg();
 }
 
+sensor_msgs::Image::Ptr makeDepthImage(const std_msgs::Header& header,
+                                       const InputData& sensor_data) {
+  const auto& depth = sensor_data.depth_image;
+  cv_bridge::CvImagePtr msg(new cv_bridge::CvImage());
+  msg->header = header;
+  msg->encoding = "32FC1";
+  msg->image = depth;
+  return msg->toImageMsg();
+}
+
 // TODO(nathan) pcl_ros would avoid this but it causes compile issues (and would also
 // require going to pcl pointcloud as an intermediate type)
 sensor_msgs::PointCloud2::Ptr makeCloud(const std_msgs::Header& header,

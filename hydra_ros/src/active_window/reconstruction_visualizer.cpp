@@ -204,11 +204,13 @@ void ReconstructionVisualizer::call(uint64_t timestamp_ns,
         return label_colormap_(label);
       });
     });
+    image_pubs_.publish(sensor_name + "/depth",
+                        [&]() { return makeDepthImage(header, *output.sensor_data); });
     cloud_pubs_.publish(sensor_name + "/pointcloud", [&]() {
       return makeCloud(header, *output.sensor_data, config.filter_points_by_range);
     });
   }
-}
+}  // namespace hydra
 
 void ReconstructionVisualizer::publishMesh(const ActiveWindowOutput& out) const {
   std_msgs::Header header;
