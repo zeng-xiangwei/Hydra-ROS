@@ -56,6 +56,7 @@ struct RunSettings {
   bool verbose_plugins = false;
   bool trace_plugin_allocations = false;
   std::vector<std::string> paths;
+  int config_verbosity = 1;
 };
 
 void declare_config(RunSettings& config) {
@@ -70,6 +71,7 @@ void declare_config(RunSettings& config) {
   field(config.verbose_plugins, "verbose_plugins");
   field(config.trace_plugin_allocations, "trace_plugin_allocations");
   field(config.paths, "paths");
+  field(config.config_verbosity, "config_verbosity");
 }
 
 }  // namespace hydra
@@ -100,7 +102,7 @@ int main(int argc, char* argv[]) {
   hydra::GlobalInfo::instance().setForceShutdown(settings.force_shutdown);
 
   {  // start hydra scope
-    hydra::HydraRosPipeline hydra(nh, settings.robot_id);
+    hydra::HydraRosPipeline hydra(nh, settings.robot_id, settings.config_verbosity);
     hydra.init();
 
     hydra.start();

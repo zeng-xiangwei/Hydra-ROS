@@ -70,8 +70,8 @@ void declare_config(HydraRosPipeline::Config& config) {
   field(config.features, "features");
 }
 
-HydraRosPipeline::HydraRosPipeline(const ros::NodeHandle& nh, int robot_id)
-    : HydraPipeline(config::fromRos<PipelineConfig>(nh), robot_id),
+HydraRosPipeline::HydraRosPipeline(const ros::NodeHandle& nh, int robot_id, int config_verbosity)
+    : HydraPipeline(config::fromRos<PipelineConfig>(nh), robot_id, config_verbosity),
       config(config::checkValid(config::fromRos<Config>(nh))),
       nh_(nh) {
   LOG(INFO) << "Starting Hydra-ROS with input configuration\n"

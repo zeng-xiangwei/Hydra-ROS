@@ -61,7 +61,7 @@ class HydraRosPipeline : public HydraPipeline {
     config::VirtualConfig<FeatureReceiver> features;
   } const config;
 
-  HydraRosPipeline(const ros::NodeHandle& nh, int robot_id);
+  HydraRosPipeline(const ros::NodeHandle& nh, int robot_id, int config_verbosity = 1);
 
   virtual ~HydraRosPipeline();
 
