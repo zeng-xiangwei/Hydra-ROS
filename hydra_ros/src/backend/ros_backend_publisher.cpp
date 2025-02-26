@@ -135,7 +135,8 @@ void RosBackendPublisher::publishTf(const DynamicSceneGraph& graph,
     map_T_body = gtsam::Pose3(gtsam::Rot3(attrs.world_R_body), attrs.position);
     map_T_odom = map_T_body * odom_T_body.inverse();
 
-    agent_stamp = graph.getNode(pgmo_key).timestamp.value().count();
+    agent_stamp =
+        graph.getNode(pgmo_key).attributes<AgentNodeAttributes>().timestamp.count();
   }
 
   std::vector<geometry_msgs::TransformStamped> transforms;
