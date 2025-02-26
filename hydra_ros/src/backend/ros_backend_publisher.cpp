@@ -38,10 +38,13 @@
 #include <config_utilities/parsing/ros.h>
 #include <config_utilities/printing.h>
 #include <config_utilities/validation.h>
+#include <geometry_msgs/TransformStamped.h>
+#include <gtsam/geometry/Pose3.h>
 #include <hydra/common/global_info.h>
 #include <kimera_pgmo_ros/visualization_functions.h>
 #include <pose_graph_tools_msgs/PoseGraph.h>
 #include <pose_graph_tools_ros/conversions.h>
+#include <tf2_eigen/tf2_eigen.h>
 #include <visualization_msgs/Marker.h>
 
 namespace hydra {
@@ -56,6 +59,10 @@ void declare_config(RosBackendPublisher::Config& config) {
   using namespace config;
   name("RosBackendPublisher::Config");
   field(config.publish_mesh, "publish_mesh");
+  field(config.publish_backend_tf, "publish_backend_tf");
+  field(config.tf_pub_robot_frame, "tf_pub_robot_frame");
+  field(config.tf_pub_map_frame, "tf_pub_map_frame");
+  field(config.tf_pub_odom_frame, "tf_pub_odom_frame");
 }
 
 RosBackendPublisher::RosBackendPublisher(const ros::NodeHandle& nh)
@@ -91,9 +98,78 @@ void RosBackendPublisher::call(uint64_t timestamp_ns,
       pose_mesh_edges_pub_.getNumSubscribers() > 0) {
     publishDeformationGraphViz(dgraph, timestamp_ns);
   }
+
+  if (config.publish_backend_tf) {
+    publishTf(graph, dgraph);
+  }
 }
 
 std::string RosBackendPublisher::printInfo() const { return config::toString(config); }
+
+void RosBackendPublisher::publishTf(const DynamicSceneGraph& graph,
+                                    const DeformationGraph& dgraph) const {
+  const auto& prefix = GlobalInfo::instance().getRobotPrefix();
+
+  const auto& frames = GlobalInfo::instance().getFrames();
+  std::string map_frame = config.tf_pub_map_frame;
+  if (map_frame == "") {
+    map_frame = frames.map;
+  }
+
+  std::string odom_frame = config.tf_pub_odom_frame;
+  if (odom_frame == "") {
+    odom_frame = frames.odom;
+  }
+
+  const auto& agents = graph.getLayer(DsgLayers::AGENTS, prefix.key);
+  int64_t agent_stamp = 0;
+
+  gtsam::Pose3 map_T_odom;
+  gtsam::Pose3 map_T_body;
+
+  if (agents.numNodes()) {
+    NodeSymbol pgmo_key(prefix.key, agents.numNodes() - 1);
+    const auto& attrs = graph.getNode(pgmo_key).attributes<AgentNodeAttributes>();
+
+    const auto& odom_T_body = dgraph.getInitialPose(prefix.key, pgmo_key.categoryId());
+    map_T_body = gtsam::Pose3(gtsam::Rot3(attrs.world_R_body), attrs.position);
+    map_T_odom = map_T_body * odom_T_body.inverse();
+
+    agent_stamp = graph.getNode(pgmo_key).timestamp.value().count();
+  }
+
+  std::vector<geometry_msgs::TransformStamped> transforms;
+  // Build map->odom transform message
+  auto& tf = transforms.emplace_back();
+  tf.header.frame_id = map_frame;
+  tf.header.stamp = ros::Time::now();
+  tf.child_frame_id = odom_frame;
+  tf2::convert(map_T_odom.rotation().toQuaternion(), tf.transform.rotation);
+  tf2::toMsg(map_T_odom.translation(), tf.transform.translation);
+
+  if (config.tf_pub_robot_frame != "") {
+    // Build map->robot transform message
+    geometry_msgs::TransformStamped tf_robot;
+    tf_robot.header.stamp = ros::Time::now();
+    tf_robot.header.frame_id = map_frame;
+    tf_robot.child_frame_id = config.tf_pub_robot_frame;
+    tf2::convert(map_T_body.rotation().toQuaternion(), tf_robot.transform.rotation);
+    tf2::toMsg(map_T_body.translation(), tf_robot.transform.translation);
+    if (agent_stamp == 0) {
+      // Publish identity map->robot TF if there are no agent nodes in the scene graph
+      // yet
+      tf_robot.header.stamp = ros::Time::now();
+      transforms.push_back(tf_robot);
+    } else if (agent_stamp != last_robot_tf_stamp_) {
+      // Publish TF at most once per agent node
+      tf_robot.header.stamp.fromNSec(agent_stamp);
+      last_robot_tf_stamp_ = agent_stamp;
+      transforms.push_back(tf_robot);
+    }
+  }
+
+  tf_br_.sendTransform(transforms);
+}
 
 void RosBackendPublisher::publishPoseGraph(const DynamicSceneGraph& graph,
                                            const DeformationGraph& dgraph) const {

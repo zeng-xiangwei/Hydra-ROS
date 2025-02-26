@@ -34,6 +34,7 @@
  * -------------------------------------------------------------------------- */
 #pragma once
 #include <hydra/backend/backend_module.h>
+#include <tf2_ros/transform_broadcaster.h>
 
 #include "hydra_ros/utils/dsg_streaming_interface.h"
 
@@ -43,6 +44,13 @@ class RosBackendPublisher : public BackendModule::Sink {
  public:
   struct Config {
     bool publish_mesh = false;
+    bool publish_backend_tf = false;
+    //! @brief Frame to use when publishing map_T_robot. An empty frame disables publishing
+    std::string tf_pub_robot_frame = "";
+    //! @brief Optional override for the map frame ID (defaults to current Hydra global setting)
+    std::string tf_pub_map_frame = "";
+    //! @brief Optional override for the odom frame ID (defaults to current Hydra global setting)
+    std::string tf_pub_odom_frame = "";
   } const config;
 
   explicit RosBackendPublisher(const ros::NodeHandle& nh);
@@ -65,6 +73,9 @@ class RosBackendPublisher : public BackendModule::Sink {
   virtual void publishDeformationGraphViz(const kimera_pgmo::DeformationGraph& dgraph,
                                           size_t timestamp_ns) const;
 
+  virtual void publishTf(const DynamicSceneGraph& graph,
+                         const kimera_pgmo::DeformationGraph& dgraph) const;
+
  protected:
   ros::NodeHandle nh_;
   ros::Publisher mesh_mesh_edges_pub_;
@@ -72,6 +83,8 @@ class RosBackendPublisher : public BackendModule::Sink {
   ros::Publisher pose_graph_pub_;
   ros::Publisher mesh_graph_pub_;
   std::unique_ptr<DsgSender> dsg_sender_;
+  mutable tf2_ros::TransformBroadcaster tf_br_;
+  mutable int64_t last_robot_tf_stamp_ = 0;
 };
 
 }  // namespace hydra
