@@ -80,7 +80,11 @@ void PosePlugin::draw(const std_msgs::Header& header, const DynamicSceneGraph& g
 
   size_t num_seen = 0;
   size_t every_n_nodes = config.num_to_skip + 1;
-  const auto layer = graph.findLayer(config.layer, config.partition);
+  const auto layer_id = graph.getLayerKey(config.layer);
+  if (!layer_id) {
+    return;
+  }
+  const auto layer = graph.findLayer(layer_id->layer, config.partition);
   if (!layer) {
     LOG(WARNING) << "Missing layer '" << config.layer << "' and partition "
                  << config.partition;
