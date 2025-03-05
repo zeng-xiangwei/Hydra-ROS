@@ -121,15 +121,15 @@ void RosBackendPublisher::publishTf(const DynamicSceneGraph& graph,
     odom_frame = frames.odom;
   }
 
-  const auto layer_id = graph.getLayerKey(DsgLayers::AGENTS)->layer;
-  const auto& agents = graph.getLayer(layer_id, prefix.key);
+  const auto layer_id = graph.getLayerKey(DsgLayers::AGENTS).value().layer;
+  const auto agents = graph.findLayer(layer_id, prefix.key);
   int64_t agent_stamp = 0;
 
   gtsam::Pose3 map_T_odom;
   gtsam::Pose3 map_T_body;
 
-  if (agents.numNodes()) {
-    NodeSymbol pgmo_key(prefix.key, agents.numNodes() - 1);
+  if (agents && agents->numNodes()) {
+    NodeSymbol pgmo_key(prefix.key, agents->numNodes() - 1);
     const auto& attrs = graph.getNode(pgmo_key).attributes<AgentNodeAttributes>();
 
     const auto& odom_T_body = dgraph.getInitialPose(prefix.key, pgmo_key.categoryId());
@@ -176,13 +176,16 @@ void RosBackendPublisher::publishTf(const DynamicSceneGraph& graph,
 void RosBackendPublisher::publishPoseGraph(const DynamicSceneGraph& graph,
                                            const DeformationGraph& dgraph) const {
   const auto& prefix = GlobalInfo::instance().getRobotPrefix();
-  const auto layer_id = graph.getLayerKey(DsgLayers::AGENTS)->layer;
-  const auto& agent = graph.getLayer(layer_id, prefix.key);
+  const auto layer_id = graph.getLayerKey(DsgLayers::AGENTS).value().layer;
+  const auto agent = graph.findLayer(layer_id, prefix.key);
+  if (!agent) {
+    return;
+  }
 
   std::map<size_t, std::vector<size_t>> id_timestamps;
   id_timestamps[prefix.id] = std::vector<size_t>();
   auto& times = id_timestamps[prefix.id];
-  for (const auto& [node_id, node] : agent.nodes()) {
+  for (const auto& [node_id, node] : agent->nodes()) {
     times.push_back(node->attributes<AgentNodeAttributes>().timestamp.count());
   }
 
