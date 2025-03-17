@@ -127,6 +127,7 @@ void SeenDurationMeshColoring::setMaxDuration(spark_dsg::Mesh::Timestamp max) {
 MeshColorAdaptor::MeshColorAdaptor(const Mesh& mesh, MeshColoring::ConstPtr coloring)
     : mesh(mesh), coloring_(std::move(coloring)) {
   if (coloring_) {
+    const_cast<MeshColoring&>(*coloring_).setMesh(mesh);
     getVertexColor = [this](size_t i) {
       return coloring_->getVertexColor(this->mesh, i);
     };
