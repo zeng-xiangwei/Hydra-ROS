@@ -33,7 +33,7 @@
  * purposes notwithstanding any copyright notation herein.
  * -------------------------------------------------------------------------- */
 #pragma once
-#include <hydra/active_window/reconstruction_module.h>
+#include <hydra/active_window/active_window_module.h>
 #include <hydra_visualizer/color/colormap_utilities.h>
 #include <hydra_visualizer/color/mesh_color_adaptor.h>
 #include <hydra_visualizer/utils/marker_group_pub.h>
@@ -65,7 +65,7 @@ struct ImagePublisherGroup : public LazyPublisherGroup<ImagePublisherGroup> {
   mutable image_transport::ImageTransport transport_;
 };
 
-class ReconstructionVisualizer : public ReconstructionModule::Sink {
+class ReconstructionVisualizer : public ActiveWindowModule::Sink {
  public:
   struct Config {
     std::string ns = "~reconstruction";
@@ -112,7 +112,7 @@ class ReconstructionVisualizer : public ReconstructionModule::Sink {
 
  private:
   inline static const auto registration_ =
-      config::RegistrationWithConfig<ReconstructionModule::Sink,
+      config::RegistrationWithConfig<ActiveWindowModule::Sink,
                                      ReconstructionVisualizer,
                                      Config>("ReconstructionVisualizer");
 };
