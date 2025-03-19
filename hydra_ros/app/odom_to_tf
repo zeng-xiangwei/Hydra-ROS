@@ -33,7 +33,7 @@ def main():
     broadcaster = tf2_ros.TransformBroadcaster()
 
     rospy.Subscriber(
-        "odom",
+        "~odom",
         nav_msgs.msg.Odometry,
         broadcast_tf,
         (broadcaster, parent_frame, child_frame),
