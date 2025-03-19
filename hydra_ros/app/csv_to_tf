@@ -17,8 +17,10 @@ def main():
 
     parent_frame = rospy.get_param("~parent_frame", "odom")
     child_frame = rospy.get_param("~child_frame", "base_link")
+    time_tolerance_s = rospy.get_param("~time_tolerance_s", -0.05)
+    rospy.loginfo(f"Publishing {parent_frame}_T_{child_frame}")
 
-    delta_t = rospy.Duration(-0.05)
+    delta_t = rospy.Duration(time_tolerance_s)
     have_first_line = False
 
     r = rospy.Rate(50)
@@ -45,6 +47,7 @@ def main():
             t.transform.rotation.y = pose[5]
             t.transform.rotation.z = pose[6]
 
+            rospy.logdebug(f"waiting for time {time_ns * 1.0e-9}")
             while not rospy.is_shutdown():
                 if rospy.Time.now() - t.header.stamp > delta_t:
                     break
