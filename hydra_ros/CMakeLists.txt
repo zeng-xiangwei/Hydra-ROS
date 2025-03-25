@@ -111,12 +111,10 @@ install(
   RUNTIME DESTINATION lib/${PROJECT_NAME}
 )
 install(TARGETS hydra_ros_node RUNTIME DESTINATION lib/${PROJECT_NAME})
-install(PROGRAMS app/dsg_republisher DESTINATION lib/${PROJECT_NAME})
+install(PROGRAMS app/dsg_republisher app/odom_to_tf DESTINATION lib/${PROJECT_NAME})
 install(DIRECTORY include/ DESTINATION include/)
 install(DIRECTORY launch DESTINATION share/${PROJECT_NAME})
 install(DIRECTORY config DESTINATION share/${PROJECT_NAME})
-
-# TODO(nathan) install python executables
 
 ament_export_targets(${PROJECT_NAME}-targets HAS_LIBRARY_TARGET)
 ament_export_dependencies(
