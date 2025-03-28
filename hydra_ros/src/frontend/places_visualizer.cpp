@@ -39,19 +39,17 @@
 #include <config_utilities/printing.h>
 #include <hydra/common/global_info.h>
 #include <hydra/frontend/gvd_place_extractor.h>
-#include <hydra/places/compression_graph_extractor.h>
 #include <hydra_visualizer/color/color_parsing.h>
 #include <hydra_visualizer/color/colormap_utilities.h>
 #include <hydra_visualizer/utils/visualizer_utilities.h>
 
 #include "hydra_ros/frontend/gvd_visualization_utilities.h"
-#include "hydra_ros/visualizer/voxel_drawing.h"
 #include "hydra_ros/utils/node_handle_factory.h"
+#include "hydra_ros/visualizer/voxel_drawing.h"
 
 namespace hydra {
 
-using places::CompressionGraphExtractor;
-using places::GraphExtractorInterface;
+using places::GraphExtractor;
 using places::GvdGraph;
 using places::GvdLayer;
 using places::GvdVoxel;
@@ -80,22 +78,20 @@ PlacesVisualizer::PlacesVisualizer(const Config& config)
 std::string PlacesVisualizer::printInfo() const { return config::toString(config); }
 
 void PlacesVisualizer::call(uint64_t timestamp_ns,
-                            const Eigen::Isometry3f& pose,
+                            const Eigen::Isometry3d& pose,
                             const GvdLayer& gvd,
-                            const GraphExtractorInterface* extractor) const {
+                            const GraphExtractor& extractor) const {
   std_msgs::Header header;
   header.frame_id = GlobalInfo::instance().getFrames().map;
   header.stamp.fromNSec(timestamp_ns);
 
   const RangeColormap sdf_cmap(RangeColormap::Config{});
   pubs_.publish("esdf_viz", header, [&]() -> Marker {
-    return drawEsdf(gvd_config_.get(), sdf_cmap, pose.cast<double>(), gvd, "esdf");
+    return drawEsdf(gvd_config_.get(), sdf_cmap, pose, gvd, "esdf");
   });
 
   visualizeGvd(header, gvd);
-  if (extractor) {
-    visualizeExtractor(header, *extractor);
-  }
+  visualizeExtractor(header, extractor);
 }
 
 void PlacesVisualizer::visualizeGvd(const std_msgs::Header& header,
@@ -118,8 +114,8 @@ void PlacesVisualizer::visualizeGvd(const std_msgs::Header& header,
   });
 }
 
-void PlacesVisualizer::visualizeExtractor(
-    const std_msgs::Header& header, const GraphExtractorInterface& extractor) const {
+void PlacesVisualizer::visualizeExtractor(const std_msgs::Header& header,
+                                          const GraphExtractor& extractor) const {
   const auto& graph = extractor.getGraph();
   pubs_.publish("graph_viz", header, [&]() -> MarkerArray {
     const auto d_min = gvd_config_.get().gvd_min_distance;
@@ -143,8 +139,7 @@ void PlacesVisualizer::visualizeExtractor(
     msg.markers.push_back(makeLayerEdgeMarkers(header, info, graph, "places_edges"));
     if (info.layer.use_text) {
       const auto text = makeLayerNodeTextMarkers(header, info, graph, "places_text");
-      msg.markers.insert(
-          msg.markers.end(), text.markers.begin(), text.markers.end());
+      msg.markers.insert(msg.markers.end(), text.markers.begin(), text.markers.end());
     }
 
     return msg;
@@ -155,15 +150,10 @@ void PlacesVisualizer::visualizeExtractor(
         extractor.getGvdGraph(), gvd_config_.get(), colormap_, "gvd_graph");
   });
 
-  const auto compression = dynamic_cast<const CompressionGraphExtractor*>(&extractor);
-  if (!compression) {
-    return;
-  }
-
   pubs_.publish("gvd_cluster_viz", header, [&]() -> MarkerArray {
-    return drawGvdClusters(compression->getGvdGraph(),
-                           compression->getCompressedNodeInfo(),
-                           compression->getCompressedRemapping(),
+    return drawGvdClusters(extractor.getGvdGraph(),
+                           extractor.getCompressedNodeInfo(),
+                           extractor.getCompressedRemapping(),
                            gvd_config_.get(),
                            "gvd_cluster_graph");
   });

@@ -54,9 +54,9 @@ class GvdOccupancyPublisher : public GvdPlaceExtractor::Sink,
   std::string printInfo() const override;
 
   void call(uint64_t timestamp_ns,
-            const Eigen::Isometry3f& world_T_sensor,
+            const Eigen::Isometry3d& world_T_sensor,
             const places::GvdLayer& gvd,
-            const places::GraphExtractorInterface* extractor) const override;
+            const places::GraphExtractor& extractor) const override;
 };
 
 void declare_config(GvdOccupancyPublisher::Config& config);

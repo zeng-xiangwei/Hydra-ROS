@@ -42,9 +42,6 @@
 #include "hydra_ros/GvdVisualizerConfig.h"
 
 namespace hydra {
-namespace places {
-class GraphExtractorInterface;
-}  // namespace places
 
 class PlacesVisualizer : public GvdPlaceExtractor::Sink {
  public:
@@ -61,15 +58,15 @@ class PlacesVisualizer : public GvdPlaceExtractor::Sink {
   std::string printInfo() const override;
 
   void call(uint64_t timestamp_ns,
-            const Eigen::Isometry3f& world_T_body,
+            const Eigen::Isometry3d& world_T_body,
             const places::GvdLayer& gvd,
-            const places::GraphExtractorInterface* extractor) const override;
+            const places::GraphExtractor& extractor) const override;
 
  private:
   void visualizeGvd(const std_msgs::Header& header, const places::GvdLayer& gvd) const;
 
   void visualizeExtractor(const std_msgs::Header& header,
-                          const places::GraphExtractorInterface& extractor) const;
+                          const places::GraphExtractor& extractor) const;
 
   void visualizeGraph(const std_msgs::Header& header,
                       const SceneGraphLayer& graph) const;

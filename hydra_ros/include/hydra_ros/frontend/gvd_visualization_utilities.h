@@ -33,7 +33,7 @@
  * purposes notwithstanding any copyright notation herein.
  * -------------------------------------------------------------------------- */
 #pragma once
-#include <hydra/places/compression_graph_extractor.h>
+#include <hydra/places/graph_extractor.h>
 #include <hydra/places/gvd_graph.h>
 #include <hydra/places/gvd_voxel.h>
 #include <hydra_visualizer/color/colormap_utilities.h>
