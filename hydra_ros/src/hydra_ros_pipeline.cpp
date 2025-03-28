@@ -68,14 +68,15 @@ void declare_config(HydraRosPipeline::Config& config) {
   field(config.input, "input");
   config.features.setOptional();
   field(config.features, "features");
+  field(config.verbosity, "verbosity");
 }
 
 HydraRosPipeline::HydraRosPipeline(const ros::NodeHandle& nh, int robot_id, int config_verbosity)
     : HydraPipeline(config::fromRos<PipelineConfig>(nh), robot_id, config_verbosity),
       config(config::checkValid(config::fromRos<Config>(nh))),
       nh_(nh) {
-  LOG(INFO) << "Starting Hydra-ROS with input configuration\n"
-            << config::toString(config.input);
+  LOG_IF(INFO, config.verbosity >= 1) << "Starting Hydra-ROS with input configuration\n"
+                                      << config::toString(config.input);
 }
 
 HydraRosPipeline::~HydraRosPipeline() {}
@@ -134,7 +135,9 @@ void HydraRosPipeline::stop() {
 void HydraRosPipeline::initLCD() {
   auto lcd_config = config::fromRos<LoopClosureConfig>(nh_);
   lcd_config.detector.num_semantic_classes = GlobalInfo::instance().getTotalLabels();
-  VLOG(1) << "Number of classes for LCD: " << lcd_config.detector.num_semantic_classes;
+  LOG_IF(INFO, config.verbosity >= 2)
+      << "Number of classes for LCD: " << lcd_config.detector.num_semantic_classes;
+
   config::checkValid(lcd_config);
 
   auto lcd = std::make_shared<LoopClosureModule>(lcd_config, shared_state_);

@@ -40,9 +40,8 @@
 #include <hydra/common/global_info.h>
 
 #include "hydra_ros/hydra_ros_pipeline.h"
-#include "hydra_ros/utils/node_utilities.h"
 #include "hydra_ros/utils/node_handle_factory.h"
-
+#include "hydra_ros/utils/node_utilities.h"
 
 namespace hydra {
 
@@ -57,6 +56,7 @@ struct RunSettings {
   bool trace_plugin_allocations = false;
   std::vector<std::string> paths;
   int config_verbosity = 1;
+  bool forward_glog_to_ros = true;
 };
 
 void declare_config(RunSettings& config) {
@@ -72,7 +72,37 @@ void declare_config(RunSettings& config) {
   field(config.trace_plugin_allocations, "trace_plugin_allocations");
   field(config.paths, "paths");
   field(config.config_verbosity, "config_verbosity");
+  field(config.forward_glog_to_ros, "forward_glog_to_ros");
 }
+
+struct RosSink : google::LogSink {
+  void send(google::LogSeverity severity,
+            const char* /*full_filename*/,
+            const char* base_filename,
+            int line,
+            const struct ::tm* /*time*/,
+            const char* message,
+            size_t message_len) override {
+    std::stringstream ss;
+    ss << "[" << base_filename << ":" << line << "] "
+       << std::string(message, message_len);
+    switch (severity) {
+      case google::GLOG_WARNING:
+        ROS_WARN_STREAM(ss.str());
+        break;
+      case google::GLOG_ERROR:
+        ROS_ERROR_STREAM(ss.str());
+        break;
+      case google::GLOG_FATAL:
+        ROS_FATAL_STREAM(ss.str());
+        break;
+      case google::GLOG_INFO:
+      default:
+        ROS_INFO_STREAM(ss.str());
+        break;
+    }
+  }
+};
 
 }  // namespace hydra
 
@@ -80,15 +110,21 @@ int main(int argc, char* argv[]) {
   ros::init(argc, argv, "hydra_node");
   ros::NodeHandle nh("~");
 
+  const auto settings = config::fromRos<hydra::RunSettings>(nh);
+
   FLAGS_minloglevel = 0;
-  FLAGS_logtostderr = 1;
+  FLAGS_logtostderr = settings.forward_glog_to_ros ? 0 : 1;
   FLAGS_colorlogtostderr = 1;
 
   google::ParseCommandLineFlags(&argc, &argv, true);
   google::InitGoogleLogging(argv[0]);
   google::InstallFailureSignalHandler();
 
-  const auto settings = config::fromRos<hydra::RunSettings>(nh);
+  std::shared_ptr<hydra::RosSink> ros_sink;
+  if (settings.forward_glog_to_ros) {
+    ros_sink = std::make_shared<hydra::RosSink>();
+    google::AddLogSink(ros_sink.get());
+  }
 
   config::Settings().setLogger("glog");
   config::Settings().print_width = settings.print_width;
@@ -112,6 +148,10 @@ int main(int argc, char* argv[]) {
     // TODO(nathan) save full config
     hydra::GlobalInfo::exit();
   }  // end hydra scope
+
+  if (ros_sink) {
+    google::RemoveLogSink(ros_sink.get());
+  }
 
   return 0;
 }

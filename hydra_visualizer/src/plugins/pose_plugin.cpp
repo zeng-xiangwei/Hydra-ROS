@@ -64,17 +64,20 @@ void declare_config(PosePlugin::Config& config) {
   field(config.num_to_skip, "num_to_skip");
   field(config.layer, "layer");
   field(config.partition, "partition");
+  field(config.num_received_before_warn, "num_received_before_warn");
 }
 
 PosePlugin::PosePlugin(const Config& config,
                        const ros::NodeHandle& nh,
                        const std::string& name)
-    : VisualizerPlugin(nh, name), config(config::checkValid(config)) {
+    : VisualizerPlugin(nh, name), config(config::checkValid(config)), num_received_(0) {
   // namespacing gives us a reasonable topic
   pub_ = nh_.advertise<PoseArray>("", 1, true);
 }
 
 void PosePlugin::draw(const std_msgs::Header& header, const DynamicSceneGraph& graph) {
+  ++num_received_;
+
   PoseArray msg;
   msg.header = header;
 
@@ -84,10 +87,12 @@ void PosePlugin::draw(const std_msgs::Header& header, const DynamicSceneGraph& g
   if (!layer_id) {
     return;
   }
+
   const auto layer = graph.findLayer(layer_id->layer, config.partition);
   if (!layer) {
-    LOG(WARNING) << "Missing layer '" << config.layer << "' and partition "
-                 << config.partition;
+    const auto should_warn = num_received_ >= config.num_received_before_warn;
+    LOG_IF(WARNING, should_warn)
+        << "Missing layer '" << config.layer << "' and partition " << config.partition;
     return;
   }
 

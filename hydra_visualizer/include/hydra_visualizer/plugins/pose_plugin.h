@@ -43,6 +43,7 @@ class PosePlugin : public VisualizerPlugin {
     size_t num_to_skip = 0;
     std::string layer = spark_dsg::DsgLayers::AGENTS;
     spark_dsg::PartitionId partition = 'a';
+    size_t num_received_before_warn = 500;
   } const config;
 
   PosePlugin(const Config& config, const ros::NodeHandle& nh, const std::string& name);
@@ -55,6 +56,7 @@ class PosePlugin : public VisualizerPlugin {
   void reset(const std_msgs::Header& header) override;
 
  protected:
+  size_t num_received_;
   ros::Publisher pub_;
 };
 

@@ -59,6 +59,7 @@ class HydraRosPipeline : public HydraPipeline {
     bool enable_zmq_interface = true;
     RosInputModule::Config input;
     config::VirtualConfig<FeatureReceiver> features;
+    int verbosity = 1;
   } const config;
 
   HydraRosPipeline(const ros::NodeHandle& nh, int robot_id, int config_verbosity = 1);
