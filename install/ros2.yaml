@@ -9,7 +9,7 @@ repositories:
     version: develop
   hydra_ros:
     type: git
-    url: git@github.mit.edu:SPARK/Hydra-ROS.git
+    url: git@github.com:MIT-SPARK/Hydra-ROS.git
     version: ros2
   ianvs:
     type: git
@@ -17,7 +17,7 @@ repositories:
     version: main
   kimera_pgmo:
     type: git
-    url: git@github.mit.edu:SPARK/Kimera-PGMO.git
+    url: git@github.com:MIT-SPARK/Kimera-PGMO.git
     version: ros2
   kimera_rpgo:
     type: git
