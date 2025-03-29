@@ -26,7 +26,7 @@ mkdir -p ~/hydra_ws/src
 cd ~/hydra_ws
 # you may find it convenient to set the build type, etc.
 # you may also want to set `symlink-install: true`
-echo "build: {cmake-args: [--no-warn-unused-cli, -DCONFIG_UTILS_ENABLE_ROS=OFF]}" > colcon_defaults.yaml
+echo "build: {cmake-args: [--no-warn-unused-cli, -DCMAKE_BUILD_TYPE=Release, -DCONFIG_UTILS_ENABLE_ROS=OFF]}" > colcon_defaults.yaml
 
 cd src
 git clone git@github.mit.edu:SPARK/Hydra-ROS.git hydra_ros
@@ -47,7 +47,7 @@ Then install [rosbags](https://pypi.org/project/rosbags/) via pip (i.e., `pip in
 
 To convert the bag:
 ```shell
-rosbags-convert --src path/to/office.bag --dest path/to/office
+rosbags-convert --src path/to/office.bag --dst path/to/office
 ```
 
 Make sure to create a override for latching static tf topics:
