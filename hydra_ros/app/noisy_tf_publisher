@@ -71,6 +71,7 @@ class NoisyTransformPublisher(Node):
         self._wrong_velocity_frame = self._get_param(
             "wrong_velocity_frame", False
         ).bool_value
+        self._start_from_origin = self._get_param("start_from_origin", True).bool_value
         self._parent_frame = self._get_param("parent_frame", "odom").string_value
         self._child_frame = self._get_param("child_frame", "base_link").string_value
         self._br = tf2_ros.TransformBroadcaster(self)
@@ -82,7 +83,7 @@ class NoisyTransformPublisher(Node):
     def _odom_cb(self, odom_msg):
         if self._last_gt_odom is None:
             self._last_gt_odom = odom_msg
-            self._last_noisy_odom = odom_msg
+            self._last_noisy_odom = Odometry() if self._start_from_origin else odom_msg
             return
 
         pose_delta = _calc_odom_delta(self._last_gt_odom, odom_msg)
