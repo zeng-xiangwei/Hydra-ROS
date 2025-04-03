@@ -74,7 +74,7 @@ class NoisyTransformPublisher(Node):
         self._parent_frame = self._get_param("parent_frame", "odom").string_value
         self._child_frame = self._get_param("child_frame", "base_link").string_value
         self._br = tf2_ros.TransformBroadcaster(self)
-        self._sub = self.create_subscription(Odometry, "odom", self._odom_cb, 10)
+        self._sub = self.create_subscription(Odometry, "~/odom", self._odom_cb, 10)
         self._pub = self.create_publisher(Odometry, "noisy_odom_out", 10)
         self._last_gt_odom = None
         self._last_noisy_odom = None
