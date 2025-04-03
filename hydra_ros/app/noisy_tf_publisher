@@ -73,10 +73,8 @@ class NoisyTransformPublisher(Node):
         ).bool_value
         self._parent_frame = self._get_param("parent_frame", "odom").string_value
         self._child_frame = self._get_param("child_frame", "base_link").string_value
-        self._broadcaster = tf2_ros.TransformBroadcaster(self)
-        self._sub = self.create_subscription(
-            Odometry, "odom", self._odom_cb, 10
-        )
+        self._br = tf2_ros.TransformBroadcaster(self)
+        self._sub = self.create_subscription(Odometry, "odom", self._odom_cb, 10)
         self._pub = self.create_publisher(Odometry, "noisy_odom_out", 10)
         self._last_gt_odom = None
         self._last_noisy_odom = None
@@ -97,10 +95,10 @@ class NoisyTransformPublisher(Node):
             self._parent_frame,
             self._child_frame,
             odom_msg.header.stamp,
-            self.last_noisy_odom.pose.pose,
+            self._last_noisy_odom.pose.pose,
         )
 
-        self.odom_pub.publish(self._last_noisy_odom)
+        self._pub.publish(self._last_noisy_odom)
         self._last_gt_odom = odom_msg
 
     def _publish_noisy_transform(self, fixed_frame, child_frame, time, noisy_pose):
@@ -118,7 +116,7 @@ class NoisyTransformPublisher(Node):
         t.transform.rotation = noisy_pose.orientation
 
         # Broadcast the noisy transform
-        self.br.sendTransform(t)
+        self._br.sendTransform(t)
 
     def _add_odom_noise(self, prev_noisy_odom, cur_gt_odom, pose_delta):
         updated_odom = Odometry()
