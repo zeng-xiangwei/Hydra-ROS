@@ -69,10 +69,12 @@ class RosBackendPublisher : public BackendModule::Sink {
 
  protected:
   virtual void publishMeshGraph(const DynamicSceneGraph& graph,
-                                const kimera_pgmo::DeformationGraph& dgraph) const;
+                                const kimera_pgmo::DeformationGraph& dgraph,
+                                const uint64_t& stamp) const;
 
   virtual void publishPoseGraph(const DynamicSceneGraph& graph,
-                                const kimera_pgmo::DeformationGraph& dgraph) const;
+                                const kimera_pgmo::DeformationGraph& dgraph,
+                                const uint64_t& stamp) const;
 
   virtual void publishDeformationGraphViz(const kimera_pgmo::DeformationGraph& dgraph,
                                           size_t timestamp_ns) const;

@@ -88,11 +88,11 @@ void RosBackendPublisher::call(uint64_t timestamp_ns,
   dsg_sender_->sendGraph(graph, stamp);
 
   if (pose_graph_pub_->get_subscription_count()) {
-    publishPoseGraph(graph, dgraph);
+    publishPoseGraph(graph, dgraph, timestamp_ns);
   }
 
   if (mesh_graph_pub_->get_subscription_count()) {
-    publishMeshGraph(graph, dgraph);
+    publishMeshGraph(graph, dgraph, timestamp_ns);
   }
 
   if (mesh_mesh_edges_pub_->get_subscription_count() ||
@@ -161,7 +161,8 @@ void RosBackendPublisher::publishTf(const DynamicSceneGraph& graph,
 }
 
 void RosBackendPublisher::publishPoseGraph(const DynamicSceneGraph& graph,
-                                           const DeformationGraph& dgraph) const {
+                                           const DeformationGraph& dgraph,
+                                           const uint64_t& stamp) const {
   const auto& prefix = GlobalInfo::instance().getRobotPrefix();
   const auto layer_id = graph.getLayerKey(DsgLayers::AGENTS).value().layer;
   const auto agent = graph.findLayer(layer_id, prefix.key);
@@ -177,14 +178,17 @@ void RosBackendPublisher::publishPoseGraph(const DynamicSceneGraph& graph,
   }
 
   auto pose_graph = *dgraph.getPoseGraph(id_timestamps, false, true);
+  pose_graph.stamp_ns = stamp;
   // pose_graph.frame_id = GlobalInfo::instance().getFrames().map;
   pose_graph_pub_->publish(pose_graph);
 }
 
 void RosBackendPublisher::publishMeshGraph(const DynamicSceneGraph&,
-                                           const DeformationGraph& dgraph) const {
+                                           const DeformationGraph& dgraph,
+                                           const uint64_t& stamp) const {
   std::map<size_t, std::vector<size_t>> id_timestamps_temp;
-  const auto mesh_graph = *dgraph.getPoseGraph(id_timestamps_temp, true, false);
+  auto mesh_graph = *dgraph.getPoseGraph(id_timestamps_temp, true, false);
+  mesh_graph.stamp_ns = stamp;
   // mesh_graph.frame_id = GlobalInfo::instance().getFrames().map;
   mesh_graph_pub_->publish(mesh_graph);
 }
