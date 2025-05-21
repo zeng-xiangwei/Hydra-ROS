@@ -13,6 +13,7 @@ import geometry_msgs.msg
 
 DEFAULT_ORDER = ["x", "y", "z", "qw", "qx", "qy", "qz"]
 
+
 def _parse_file(trajectory_file, parent, child, skip_first=True, order=None):
     if order is None:
         order = DEFAULT_ORDER
@@ -51,8 +52,13 @@ class CsvToTf(rclpy.node.Node):
         super().__init__("csv_to_tf")
         self._broadcaster = tf2_ros.TransformBroadcaster(self)
 
-        time_tolerance_s = self._get_param("time_tolerance_s", 0.05).double_value
-        self._delta_t = rclpy.duration.Duration(nanoseconds=time_tolerance_s)
+        offset_s = self._get_param("offset_s", 0.0).double_value
+        self._offset = rclpy.duration.Duration(seconds=offset_s)
+        stale_threshold_s = self._get_param("stale_threshold_s", 0.5).double_value
+        self._stale_threshold = rclpy.duration.Duration(seconds=stale_threshold_s)
+        lookahead_s = self._get_param("lookahead_s", 0.1).double_value
+        self._lookahead = rclpy.duration.Duration(seconds=lookahead_s)
+        self.get_logger().info(f"offset: {self._offset}, lookahead: {self._lookahead}, stale: {self._stale_threshold}")
 
         trajectory_file = self._get_param("trajectory_file", "").string_value
         if trajectory_file == "":
@@ -61,7 +67,9 @@ class CsvToTf(rclpy.node.Node):
 
         trajectory_file = pathlib.Path(trajectory_file).expanduser().absolute()
         if not trajectory_file.exists():
-            self.get_logger().fatal(f"Trajectory file {trajectory_file} does not exist!")
+            self.get_logger().fatal(
+                f"Trajectory file {trajectory_file} does not exist!"
+            )
             sys.exit(1)
 
         parent_frame = self._get_param("parent_frame", "odom").string_value
@@ -76,14 +84,20 @@ class CsvToTf(rclpy.node.Node):
     def _get_param(self, name, default=None):
         return self.declare_parameter(name, default).get_parameter_value()
 
-    def _curr_tf_is_stale(self, stamp):
-        if self._idx >= len(self._transforms):
+    def _curr_tf_is_stale(self, ros_stamp):
+        # we want to reject any transforms that are more than stale_threshold_s than the current stamp
+        curr_stamp = self._get_curr_tf_stamp()
+        if curr_stamp is None:
             return False
 
-        # we want to reject any transforms that are outside the [stamp - delta, stamp + delta] range
-        bound = stamp - self._delta_t
-        next_stamp = rclpy.time.Time.from_msg(self._transforms[self._idx].header.stamp)
-        return bound > next_stamp
+        return ros_stamp - curr_stamp > self._stale_threshold
+
+    def _get_curr_tf_stamp(self):
+        if self._idx >= len(self._transforms):
+            return None
+
+        stamp = rclpy.time.Time.from_msg(self._transforms[self._idx].header.stamp)
+        return stamp + self._offset
 
     def _callback(self):
         stamp = self.get_clock().now()
@@ -94,17 +108,23 @@ class CsvToTf(rclpy.node.Node):
 
         num_dropped = self._idx - prev_idx
         if num_dropped > 0:
-            self.get_logger().warn(f"Dropped {num_dropped} TFs older than {stamp.nanoseconds} [ns]")
+            self.get_logger().warn(
+                f"Dropped {num_dropped} TFs older than {stamp.nanoseconds} [ns]"
+            )
 
         if self._idx >= len(self._transforms):
             self.get_logger().info("Finished publishing transforms")
             self._timer.cancel()
             return
 
-        next_stamp = rclpy.time.Time.from_msg(self._transforms[self._idx].header.stamp)
+        next_stamp = self._get_curr_tf_stamp()
         diff_str = f"diff: {(next_stamp - stamp).nanoseconds} [ns]"
-        self.get_logger().debug(f"waiting for time {next_stamp.nanoseconds} [ns] ({diff_str})")
-        if stamp + self._delta_t < next_stamp:
+        self.get_logger().debug(
+            f"waiting for time {next_stamp.nanoseconds} [ns] ({diff_str})"
+        )
+        # if the next TF timestamp is ahead of the current ROS time by more than the lookahead,
+        # don't publish anything
+        if next_stamp - stamp > self._lookahead:
             return
 
         self.get_logger().debug(f"sending {next_stamp.nanoseconds} [ns]")
