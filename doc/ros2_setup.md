@@ -2,7 +2,7 @@
 
 ### Dependencies
 
-Hydra has been tested on Ubuntu 22.04 and ROS Iron. It **should** build on newer distributions. It **will not** build on older ROS2 distributions than Iron (it depends on the `NodeInterfaces` suite of classes that were introduced in Iron).
+Hydra has been tested on Ubuntu 22.04 & ROS2 Iron and Ubuntu 24.04 & ROS2 Jazzy. It **should** build on newer distributions. It **will not** build on older ROS2 distributions than Iron (it depends on the `NodeInterfaces` suite of classes that were introduced in Iron).
 
 You can follow the instructions [here](https://docs.ros.org/en/jazzy/Installation.html) to install ROS2 if you haven't already. The link points to Jazzy currently, pay attention to the distribution!
 Then, make sure you have some general requirements:
@@ -29,7 +29,7 @@ cd ~/hydra_ws
 echo "build: {cmake-args: [--no-warn-unused-cli, -DCMAKE_BUILD_TYPE=Release, -DCONFIG_UTILS_ENABLE_ROS=OFF]}" > colcon_defaults.yaml
 
 cd src
-git clone git@github.mit.edu:SPARK/Hydra-ROS.git hydra_ros
+git clone git@github.com:MIT-SPARK/Hydra-ROS.git hydra_ros -b ros2
 vcs import . < hydra_ros/install/ros2.yaml
 rosdep install --from-paths . --ignore-src -r -y
 
@@ -64,7 +64,7 @@ To start Hydra:
 ```shell
 # this will break autocomplete, see group wiki for correct way to do this
 source ~/hydra_ws/install/setup.zsh
-ros2 launch hydra_ros uhumans2.launch
+ros2 launch hydra_ros uhumans2.launch.yaml
 ```
 
 Then, start the rosbag in a separate terminal:

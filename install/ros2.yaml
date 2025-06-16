@@ -5,7 +5,7 @@ repositories:
     version: main
   hydra:
     type: git
-    url: git@github.mit.edu:SPARK/Hydra.git
+    url: git@github.com:MIT-SPARK/Hydra.git
     version: develop
   hydra_ros:
     type: git
