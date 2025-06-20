@@ -143,6 +143,7 @@ void HydraRosPipeline::start() {
 }
 
 void HydraRosPipeline::stop() {
+  // TODO(nathan) log remaining queue sizes here or in stop
   // enforce stop order to make sure every data packet is processed
   input_module_->stop();
   // TODO(nathan) push extracting active window objects to module stop
