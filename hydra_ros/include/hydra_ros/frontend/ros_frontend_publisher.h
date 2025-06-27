@@ -37,15 +37,23 @@
 #include <kimera_pgmo_ros/conversion/mesh_delta.h>
 #include <pose_graph_tools_ros/conversions.h>
 
+#include <map>
+#include <queue>
+
+#include <kimera_pgmo_msgs/srv/mesh_delta_query.hpp>
+
 #include "hydra_ros/utils/dsg_streaming_interface.h"
 
 namespace hydra {
 
 class RosFrontendPublisher : public GraphBuilder::Sink {
  public:
+  using MeshDeltaSrv = kimera_pgmo_msgs::srv::MeshDeltaQuery;
+
   struct Config {
     //! @brief Configuration for dsg publisher
     DsgSender::Config dsg_sender;
+    size_t mesh_delta_queue_size = 100;  // Store mesh delta to resend. 0 for infinite
   } const config;
 
   explicit RosFrontendPublisher(ianvs::NodeHandle);
@@ -57,9 +65,16 @@ class RosFrontendPublisher : public GraphBuilder::Sink {
   std::string printInfo() const override { return "RosFrontendPublisher"; }
 
  protected:
+  void processMeshDeltaQuery(const MeshDeltaSrv::Request::SharedPtr req,
+                             MeshDeltaSrv::Response::SharedPtr resp);
+
   std::unique_ptr<DsgSender> dsg_sender_;
+  mutable std::map<uint16_t, kimera_pgmo::MeshDelta::Ptr> stored_delta_;
+
   pose_graph_tools::PoseGraphPublisher mesh_graph_pub_;
   kimera_pgmo::PgmoMeshDeltaPublisher mesh_update_pub_;
+  rclcpp::Service<MeshDeltaSrv>::SharedPtr mesh_delta_server_;
+  rclcpp::TypeAdapter<kimera_pgmo::MeshDelta, kimera_pgmo_msgs::msg::MeshDelta>
+      mesh_delta_converter_;
 };
-
 }  // namespace hydra

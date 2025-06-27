@@ -44,6 +44,8 @@ namespace hydra {
 
 using kimera_pgmo::MeshDeltaTypeAdapter;
 using pose_graph_tools::PoseGraphTypeAdapter;
+using BaseInterface = rclcpp::node_interfaces::NodeBaseInterface;
+using rclcpp::CallbackGroupType;
 
 namespace {
 
@@ -60,10 +62,19 @@ void declare_config(RosFrontendPublisher::Config& config) {
   using namespace config;
   name("RosFrontendPublisher::Config");
   field(config.dsg_sender, "");
+  field(config.mesh_delta_queue_size, "mesh_delta_queue_size");
 }
 
 RosFrontendPublisher::RosFrontendPublisher(ianvs::NodeHandle nh)
     : config(config::checkValid(get_config())) {
+  auto group = nh.as<BaseInterface>()->create_callback_group(
+      CallbackGroupType::MutuallyExclusive);
+  mesh_delta_server_ =
+      nh.create_service<MeshDeltaSrv>("mesh_delta_query",
+                                      &RosFrontendPublisher::processMeshDeltaQuery,
+                                      this,
+                                      rclcpp::ServicesQoS(),
+                                      group);
   dsg_sender_ = std::make_unique<DsgSender>(config.dsg_sender, nh);
   mesh_graph_pub_ = nh.create_publisher<PoseGraphTypeAdapter>(
       "mesh_graph_incremental", rclcpp::QoS(100).transient_local());
@@ -79,9 +90,32 @@ void RosFrontendPublisher::call(uint64_t timestamp_ns,
   if (backend_input.mesh_update) {
     backend_input.mesh_update->timestamp_ns = timestamp_ns;
     mesh_update_pub_->publish(*backend_input.mesh_update);
+    stored_delta_.insert(
+        {backend_input.mesh_update->sequence_number, backend_input.mesh_update});
+    if (config.mesh_delta_queue_size > 0 &&
+        stored_delta_.size() > static_cast<size_t>(config.mesh_delta_queue_size)) {
+      stored_delta_.erase(stored_delta_.begin());
+    }
   }
 
   dsg_sender_->sendGraph(graph, rclcpp::Time(timestamp_ns));
+}
+
+void RosFrontendPublisher::processMeshDeltaQuery(
+    const MeshDeltaSrv::Request::SharedPtr req,
+    MeshDeltaSrv::Response::SharedPtr resp) {
+  LOG(INFO) << "Received request for " << req->sequence_numbers.size()
+            << " mesh deltas...";
+  for (const auto& seq : req->sequence_numbers) {
+    auto& msg = resp->deltas.emplace_back();
+    // Check TypeAdater documentation TODO(Yun)
+    if (!stored_delta_.count(seq)) {
+      LOG(ERROR) << "Mesh delta sequence " << seq << " not found";
+      continue;
+    }
+    mesh_delta_converter_.convert_to_ros_message(*stored_delta_.at(seq), msg);
+  }
+  LOG(INFO) << "Responding with " << resp->deltas.size() << " deltas...";
 }
 
 }  // namespace hydra
