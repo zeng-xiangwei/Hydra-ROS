@@ -82,7 +82,7 @@ void declare_config(LayerConfig::Edges& config) {
 
 void declare_config(LayerConfig::Text& config) {
   using namespace config;
-  name("LayerConfig::BoundingBoxes");
+  name("LayerConfig::Text");
   field(config.draw, "draw");
   field(config.draw_layer, "draw_layer");
   field(config.collapse, "collapse");
@@ -106,7 +106,7 @@ void declare_config(LayerConfig::BoundingBoxes& config) {
 
 void declare_config(LayerConfig::Boundaries& config) {
   using namespace config;
-  name("LayerConfig");
+  name("LayerConfig::Boundaries");
   field(config.draw, "draw");
   field(config.collapse, "collapse");
   field(config.wireframe_scale, "wireframe_scale");
@@ -132,7 +132,7 @@ void declare_config(LayerConfig& config) {
   field(config.boundaries, "boundaries");
 }
 
-LayerInfo::LayerInfo(const LayerConfig& config)
+LayerInfo::LayerInfo(const LayerConfig config)
     : config(config),
       z_offset(0.0),
       node_color(&getNodeColor),
