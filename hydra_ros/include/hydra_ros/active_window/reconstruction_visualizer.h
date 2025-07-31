@@ -45,6 +45,8 @@
 #include <sensor_msgs/msg/image.hpp>
 #include <sensor_msgs/msg/point_cloud2.hpp>
 
+#include "hydra_ros/utils/input_data_to_messages.h"
+
 namespace hydra {
 
 class ReconstructionVisualizer : public ActiveWindowModule::Sink {
@@ -68,6 +70,7 @@ class ReconstructionVisualizer : public ActiveWindowModule::Sink {
     visualizer::RangeColormap::Config colormap;
     visualizer::CategoricalColormap::Config label_colormap;
     config::VirtualConfig<MeshColoring> mesh_coloring;
+    DisplayConfig image_display;
   } const config;
 
   explicit ReconstructionVisualizer(const Config& config);
