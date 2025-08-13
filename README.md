@@ -73,7 +73,7 @@ cd ~/hydra_ws
 echo "build: {cmake-args: [-DCMAKE_BUILD_TYPE=Release]}" > colcon_defaults.yaml
 
 cd src
-git clone git@github.com:MIT-SPARK/Hydra-ROS.git hydra_ros -b ros2
+git clone git@github.com:MIT-SPARK/Hydra-ROS.git hydra_ros
 vcs import . < hydra_ros/install/ros2.yaml
 rosdep install --from-paths . --ignore-src -r -y
 
