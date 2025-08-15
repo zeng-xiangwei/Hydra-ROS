@@ -50,8 +50,7 @@
 #include <config_utilities/config.h>
 #include <config_utilities/validation.h>
 #include <glog/logging.h>
-
-#include "hydra_ros/common.h"
+#include <ianvs/node_handle.h>
 
 namespace hydra {
 
@@ -67,7 +66,7 @@ void declare_config(RosPoseGraphTracker::Config& config) {
 RosPoseGraphTracker::RosPoseGraphTracker(const Config& config)
     : config(config::checkValid(config)) {
   using pose_graph_tools::PoseGraphTypeAdapter;
-  auto nh = getHydraNodeHandle(config.ns);
+  auto nh = ianvs::NodeHandle::this_node(config.ns);
   odom_sub_ = nh.create_subscription<PoseGraphTypeAdapter>(
       "pose_graph", config.queue_size, &RosPoseGraphTracker::odomCallback, this);
   prior_sub_ =
