@@ -78,7 +78,7 @@ std::optional<sensor_msgs::msg::CameraInfo> getCameraInfo(const RosCamera::Confi
             << " to initialize sensor model";
 
   const auto start = nh.now();
-  const auto qos = rclcpp::QoS(1).transient_local();
+  const auto qos = rclcpp::QoS(1);
   const size_t timeout = std::floor(c.warning_timeout_s * 1000);
 
   std::optional<sensor_msgs::msg::CameraInfo> msg;
