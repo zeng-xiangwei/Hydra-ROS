@@ -45,19 +45,14 @@ class DsgPublisher:
 class DsgSubscriber:
     """Class for receiving a scene graph in python."""
 
-    def __init__(self, node: Node, topic: str, callback):
+    def __init__(self, node: Node, topic: str, callback, qos = None):
         """Construct a DSG Receiver."""
         self._callback = callback
         self._graph_set = False
         self._graph = None
         self._logger = node.get_logger()
 
-        qos_profile = QoSProfile(
-            history=QoSHistoryPolicy.KEEP_ALL,
-            depth=10,  # Still ignored
-            durability=QoSDurabilityPolicy.TRANSIENT_LOCAL
-        )
-
+        qos_profile = qos or QoSProfile(depth=1)
         self._sub = node.create_subscription(
             DsgUpdate,
             topic,
